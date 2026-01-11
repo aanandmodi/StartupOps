@@ -22,7 +22,6 @@ router = APIRouter(prefix="/startup", tags=["Startup"])
 @router.post("/create", response_model=dict)
 async def create_startup(
     startup_data: StartupCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -50,7 +49,7 @@ async def create_startup(
     
     logger.info(f"Startup created with ID: {startup.id}")
     
-    # Run agent orchestration
+    # Run agent orchestration synchronously
     orchestrator = AgentOrchestrator(db)
     try:
         results = await orchestrator.run_full_orchestration(startup)
@@ -115,6 +114,8 @@ async def get_dashboard(
         score=execution_data.get("score", 0),
         status=execution_data.get("status", "unknown"),
         completed_tasks=execution_data.get("completed_tasks", 0),
+        in_progress_tasks=execution_data.get("in_progress_tasks", 0),
+        pending_tasks=execution_data.get("pending_tasks", 0),
         total_tasks=execution_data.get("total_tasks", 0),
         blocked_tasks=execution_data.get("blocked_tasks", 0),
         overdue_tasks=execution_data.get("overdue_tasks", 0),

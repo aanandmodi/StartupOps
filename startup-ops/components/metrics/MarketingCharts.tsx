@@ -153,7 +153,7 @@ export function MarketingCharts({ metrics }: MarketingChartsProps) {
                                             borderRadius: "8px",
                                             color: "oklch(0.95 0.01 260)",
                                         }}
-                                        formatter={(value: number) => [`${value}%`, "Rate"]}
+                                        formatter={(value: any) => [`${value}%`, "Rate"]}
                                     />
                                     <Line
                                         type="monotone"

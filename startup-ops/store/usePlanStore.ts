@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 export type Priority = "high" | "medium" | "low";
 export type TaskStatus = "pending" | "in-progress" | "completed" | "blocked";
-export type Category = "product" | "marketing" | "finance" | "operations" | "hiring" | "legal";
+export type Category = "product" | "marketing" | "finance" | "operations" | "hiring" | "legal" | "tech";
 
 export interface Task {
     id: string;
@@ -54,7 +54,7 @@ export const usePlanStore = create<PlanState>()(
             tasks: [],
             alerts: [],
             selectedCategory: "all",
-            expandedCategories: ["product", "marketing", "finance", "operations", "hiring", "legal"],
+            expandedCategories: ["product", "tech", "marketing", "finance", "operations", "hiring", "legal"],
             healthScore: 0,
             driftPercentage: 0,
             isLoading: false,

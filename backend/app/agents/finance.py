@@ -71,7 +71,7 @@ OUTPUT FORMAT - You MUST return ONLY valid JSON with this exact structure:
             "category": "finance",
             "priority": 1-5,
             "estimated_days": number,
-            "dependencies": []
+            "dependencies": [list of task indices, e.g., [1, 2]]
         }
     ],
     "cost_optimizations": [
@@ -80,6 +80,21 @@ OUTPUT FORMAT - You MUST return ONLY valid JSON with this exact structure:
             "potential_savings": number,
             "recommendation": "How to save"
         }
+    ],
+    "headcount_assumptions": [
+        {
+            "role": "Role title",
+            "count": number,
+            "salary_monthly": number
+        }
+    ],
+    "monthly_forecast": [
+        {
+            "month": 1,
+            "revenue_projected": number,
+            "expense_projected": number,
+            "cash_balance": number
+        }
     ]
 }
 
@@ -87,7 +102,8 @@ RULES:
 - Output ONLY JSON, no markdown
 - Be conservative with estimates
 - Consider startup stage constraints
-- Account for hidden costs (tools, services, etc.)"""
+- Account for hidden costs (tools, services, etc.)
+- INCLUDE DOMAIN SPECIFICS: e.g., "GPU Cloud Costs" for AI, "Gas Fees/Audit" for Web3."""
     
     def get_mock_response(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Return mock response for testing without API."""
@@ -204,5 +220,48 @@ RULES:
                     "potential_savings": 300,
                     "recommendation": "Consolidate tools and use startup programs"
                 }
+            ],
+            "headcount_assumptions": [
+                {"role": "Founders", "count": 2, "salary_monthly": 0},
+                {"role": "Senior Engineer", "count": 1, "salary_monthly": 12000},
+                {"role": "Marketing Lead", "count": 1, "salary_monthly": 8000}
+            ],
+            "monthly_forecast": [
+                {"month": 1, "revenue_projected": 0, "expense_projected": 25000, "cash_balance": 475000},
+                {"month": 2, "revenue_projected": 1000, "expense_projected": 26000, "cash_balance": 450000},
+                {"month": 3, "revenue_projected": 2500, "expense_projected": 27000, "cash_balance": 425500},
+                {"month": 4, "revenue_projected": 5000, "expense_projected": 28000, "cash_balance": 402500},
+                {"month": 5, "revenue_projected": 8000, "expense_projected": 30000, "cash_balance": 380500},
+                {"month": 6, "revenue_projected": 12000, "expense_projected": 32000, "cash_balance": 360500}
             ]
         }
+
+    def generate_budget_csv(self, data: dict[str, Any]) -> str:
+        """Generate a CSV budget from the finance data."""
+        budget = data.get("budget_allocation", {})
+        breakdown = budget.get("breakdown", [])
+        currency = budget.get("currency", "USD")
+        headcount = data.get("headcount_assumptions", [])
+        forecast = data.get("monthly_forecast", [])
+        
+        csv_content = f"1. BUDGET ALLOCATION\nCategory,Amount ({currency}),Percentage\n"
+        for item in breakdown:
+            csv_content += f"{item.get('category').title()},{item.get('amount')},{item.get('percentage')}%\n"
+        csv_content += f"TOTAL,{budget.get('total_estimated')},100%\n\n"
+        
+        csv_content += "2. HEADCOUNT ASSUMPTIONS\nRole,Count,Monthly Salary\n"
+        for role in headcount:
+            csv_content += f"{role.get('role')},{role.get('count')},{role.get('salary_monthly')}\n"
+        csv_content += "\n"
+        
+        csv_content += "3. 6-MONTH PROJECTED FORECAST\nMonth,Revenue,Expenses,Cash Balance\n"
+        for m in forecast:
+            csv_content += f"{m.get('month')},{m.get('revenue_projected')},{m.get('expense_projected')},{m.get('cash_balance')}\n"
+        csv_content += "\n"
+        
+        burn_rate = data.get("burn_rate", {})
+        csv_content += "4. BURN RATE METRICS\n"
+        csv_content += f"Monthly Burn,{burn_rate.get('monthly')},\n"
+        csv_content += f"Weekly Burn,{burn_rate.get('weekly')},\n"
+        
+        return csv_content

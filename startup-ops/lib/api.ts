@@ -1,41 +1,47 @@
 /**
- * StartupOps API Client
- * Connects the frontend to the FastAPI backend
+ * StartupOps API Client - Real Implementation
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { Task, Alert, Category, Priority, TaskStatus } from "@/store/usePlanStore";
+import { Goal } from "@/store/useGoalStore";
+import { MarketingMetrics, FinanceMetrics, MetricPoint } from "@/store/useMetricsStore";
 
-// Types matching backend schemas
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// --- Backend Types ---
+
 export interface StartupCreate {
     goal: string;
     domain: string;
     team_size: number;
 }
 
-export interface StartupResponse {
-    id: number;
-    goal: string;
-    domain: string;
-    team_size: number;
-    created_at: string;
-}
-
-export interface TaskResponse {
+export interface BackendTask {
     id: number;
     startup_id: number;
     title: string;
     description: string | null;
-    category: "product" | "tech" | "marketing" | "finance";
+    category: string;
     priority: number;
     estimated_days: number;
-    status: "pending" | "in_progress" | "completed";
+    status: string;
     dependencies: number[];
 }
 
-export interface KPIResponse {
+export interface BackendAlert {
     id: number;
     startup_id: number;
-    type: "marketing" | "finance" | "execution";
+    severity: string;
+    message: string;
+    recommended_action: string | null;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface BackendKPI {
+    id: number;
+    startup_id: number;
+    type: string;
     name: string;
     value: number;
     target: number | null;
@@ -43,227 +49,223 @@ export interface KPIResponse {
     timestamp: string;
 }
 
-export interface AlertResponse {
-    id: number;
-    startup_id: number;
-    severity: "info" | "warning" | "critical";
-    message: string;
-    recommended_action: string | null;
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ExecutionHealth {
+export interface BackendExecutionHealth {
     score: number;
-    status: "healthy" | "at_risk" | "critical";
+    status: string;
     completed_tasks: number;
     total_tasks: number;
     blocked_tasks: number;
     overdue_tasks: number;
 }
 
-export interface DashboardResponse {
-    startup: StartupResponse;
-    tasks: TaskResponse[];
-    kpis: KPIResponse[];
-    alerts: AlertResponse[];
-    execution_health: ExecutionHealth;
-}
-
 export interface CreateStartupResponse {
     startup_id: number;
-    status: "success" | "partial";
+    status: string;
     message: string;
-    agent_summary?: {
-        product: string;
-        tech: string;
-        marketing: string;
-        finance: string;
-        advisor: string;
-    };
+    agent_summary: Record<string, string>;
 }
 
-// API Functions
+export interface DashboardResponse {
+    startup: any;
+    tasks: BackendTask[];
+    kpis: BackendKPI[];
+    alerts: BackendAlert[];
+    execution_health: BackendExecutionHealth;
+}
 
-/**
- * Create a new startup and trigger AI agent orchestration
- */
+// --- API Functions ---
+
 export async function createStartup(data: StartupCreate): Promise<CreateStartupResponse> {
-    const response = await fetch(`${API_BASE_URL}/startup/create`, {
+    const response = await fetch(`${API_URL}/startup/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to create startup: ${response.statusText}`);
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Failed to create startup");
     }
 
     return response.json();
 }
 
-/**
- * Get full dashboard data for a startup
- */
 export async function getDashboard(startupId: number): Promise<DashboardResponse> {
-    const response = await fetch(`${API_BASE_URL}/startup/${startupId}/dashboard`);
-
+    const response = await fetch(`${API_URL}/startup/${startupId}/dashboard`);
     if (!response.ok) {
-        throw new Error(`Failed to fetch dashboard: ${response.statusText}`);
+        throw new Error("Failed to fetch dashboard");
     }
-
     return response.json();
 }
 
-/**
- * Update a task's status
- */
-export async function updateTaskStatus(
-    taskId: number,
-    status: "pending" | "in_progress" | "completed"
-): Promise<{
-    task: TaskResponse;
-    status_changed: boolean;
-    execution_health?: ExecutionHealth;
-    new_recommendations?: unknown[];
-}> {
-    const response = await fetch(`${API_BASE_URL}/task/${taskId}/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to update task: ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-/**
- * Get alerts for a startup
- */
-export async function getAlerts(startupId: number): Promise<AlertResponse[]> {
-    const response = await fetch(`${API_BASE_URL}/alerts/${startupId}`);
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch alerts: ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-/**
- * Dismiss an alert
- */
-export async function dismissAlert(alertId: number): Promise<{ message: string; alert_id: number }> {
-    const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/dismiss`, {
-        method: "POST",
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to dismiss alert: ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-/**
- * Get API health status
- */
-export async function getApiHealth(): Promise<{ status: string; mock_mode: boolean }> {
-    const response = await fetch(`${API_BASE_URL}/health`);
-
-    if (!response.ok) {
-        throw new Error(`API health check failed: ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-// Helper function to convert backend task to frontend task format
-import { Task, Alert, Category, TaskStatus as FrontendTaskStatus, Priority } from "@/store/usePlanStore";
-
-export function convertBackendTask(task: TaskResponse): Task {
-    // Map backend category to frontend category
-    const categoryMap: Record<string, Category> = {
-        product: "product",
-        tech: "operations", // tech maps to operations in frontend
-        marketing: "marketing",
-        finance: "finance",
-    };
-
-    // Map backend status to frontend status
-    const statusMap: Record<string, FrontendTaskStatus> = {
-        pending: "pending",
-        in_progress: "in-progress",
-        completed: "completed",
-    };
-
-    // Map priority number to priority string
-    const priorityMap: Record<number, Priority> = {
-        1: "low",
-        2: "low",
-        3: "medium",
-        4: "high",
-        5: "high",
-    };
-
-    return {
-        id: `task-${task.id}`,
-        title: task.title,
-        description: task.description || "",
-        priority: priorityMap[task.priority] || "medium",
-        status: statusMap[task.status] || "pending",
-        category: categoryMap[task.category] || "product",
-        estimatedDays: task.estimated_days,
-        dependencies: task.dependencies.map((d) => `task-${d}`),
-    };
-}
-
-export function convertBackendAlert(alert: AlertResponse): Alert {
-    const typeMap: Record<string, "urgent" | "warning" | "info"> = {
-        critical: "urgent",
-        warning: "warning",
-        info: "info",
-    };
-
-    return {
-        id: `alert-${alert.id}`,
-        type: typeMap[alert.severity] || "info",
-        title: alert.message.substring(0, 50),
-        message: alert.recommended_action || alert.message,
-        timestamp: new Date(alert.created_at),
-    };
-}
-
-// Main function used by GoalInputForm
-import { Goal } from "@/store/useGoalStore";
+// --- Main Integration Function ---
 
 export async function generateExecutionPlan(goal: Goal): Promise<{
     tasks: Task[];
     alerts: Alert[];
     startupId: number;
-    executionHealth: ExecutionHealth;
+    executionHealth: BackendExecutionHealth;
+    metrics: {
+        marketing: MarketingMetrics;
+        finance: FinanceMetrics;
+    };
 }> {
-    // Create startup via backend API
-    const createResponse = await createStartup({
+    // 1. Create Startup & Trigger Agents
+    console.log("Triggering agents for goal:", goal);
+    const createRes = await createStartup({
         goal: goal.startupGoal,
         domain: goal.domain,
         team_size: goal.teamSize,
     });
 
-    // Fetch the dashboard to get all generated data
-    const dashboard = await getDashboard(createResponse.startup_id);
+    if (createRes.status !== "success") {
+        throw new Error(createRes.message || "Agent orchestration failed");
+    }
 
-    // Convert backend data to frontend format
+    // 2. Fetch Resulting Dashboard
+    console.log("Fetching dashboard for startup ID:", createRes.startup_id);
+    const dashboard = await getDashboard(createRes.startup_id);
+
+    // 3. Transform Data
     const tasks = dashboard.tasks.map(convertBackendTask);
     const alerts = dashboard.alerts.map(convertBackendAlert);
+    const metrics = convertBackendMetrics(dashboard.kpis);
 
     return {
         tasks,
         alerts,
-        startupId: createResponse.startup_id,
+        startupId: createRes.startup_id,
         executionHealth: dashboard.execution_health,
+        metrics,
     };
+}
+
+// --- Helpers & Converters ---
+
+export function convertBackendTask(startTask: BackendTask): Task {
+    return {
+        id: startTask.id.toString(),
+        title: startTask.title,
+        description: startTask.description || "",
+        priority: mapPriority(startTask.priority),
+        status: mapStatus(startTask.status),
+        category: (startTask.category.toLowerCase() as Category) || "operations",
+        estimatedDays: startTask.estimated_days,
+        dependencies: startTask.dependencies.map(d => d.toString()),
+    };
+}
+
+export function convertBackendAlert(alert: BackendAlert): Alert {
+    return {
+        id: alert.id.toString(),
+        type: mapSeverity(alert.severity),
+        title: "Strategic Alert",
+        message: alert.message,
+        timestamp: new Date(alert.created_at),
+    };
+}
+
+function mapPriority(p: number): Priority {
+    if (p >= 5) return "high";
+    if (p >= 3) return "medium";
+    return "low";
+}
+
+function mapStatus(s: string): TaskStatus {
+    const map: Record<string, TaskStatus> = {
+        "pending": "pending",
+        "in_progress": "in-progress",
+        "completed": "completed",
+        "blocked": "blocked"
+    };
+    return map[s.toLowerCase()] || "pending";
+}
+
+function mapSeverity(s: string): "urgent" | "warning" | "info" {
+    const map: Record<string, any> = {
+        "critical": "urgent",
+        "high": "urgent",
+        "warning": "warning",
+        "medium": "warning",
+        "low": "info",
+        "info": "info"
+    };
+    return map[s.toLowerCase()] || "info";
+}
+
+// --- Synthetic Metrics Generation ---
+
+function convertBackendMetrics(kpis: BackendKPI[]): { marketing: MarketingMetrics; finance: FinanceMetrics } {
+    // Initialize empty structures
+    const marketing: MarketingMetrics = {
+        websiteVisitors: [],
+        signups: [],
+        conversionRate: [],
+        socialFollowers: []
+    };
+
+    const finance: FinanceMetrics = {
+        revenue: [],
+        expenses: [],
+        runway: 0,
+        mrr: 0,
+        arr: 0,
+        burnRate: 0
+    };
+
+    // Helper to generate a ramp-up curve ending at the target value
+    const generateCurve = (target: number, points = 12): MetricPoint[] => {
+        const data: MetricPoint[] = [];
+        const now = new Date();
+        for (let i = points - 1; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - (i * 7)); // Weekly points
+            // Simple ease-out curve: y = target * (1 - (1-x)^3) where x is progress 0..1
+            const progress = (points - 1 - i) / (points - 1); // 0 to 1
+            // Random noise +/- 5%
+            const noise = 1 + (Math.random() * 0.1 - 0.05);
+            // Value ramps up to target
+            let val = target * progress * noise;
+            if (i === 0) val = target * 0.1; // Start low
+            data.push({
+                date: date.toISOString().split('T')[0],
+                value: Math.round(val)
+            });
+        }
+        return data;
+    };
+
+    kpis.forEach(kpi => {
+        const name = kpi.name.toLowerCase();
+        // If target is null, use value as target
+        const target = kpi.target || kpi.value || 0;
+
+        if (kpi.type === "marketing") {
+            if (name.includes("visitor") || name.includes("traffic")) {
+                marketing.websiteVisitors = generateCurve(target);
+            } else if (name.includes("signup") || name.includes("user")) {
+                marketing.signups = generateCurve(target);
+            } else if (name.includes("conversion")) {
+                marketing.conversionRate = generateCurve(target < 100 ? target : 5); // ensure plausible %
+            } else if (name.includes("social") || name.includes("follower")) {
+                marketing.socialFollowers = generateCurve(target);
+            }
+        } else if (kpi.type === "finance") {
+            if (name.includes("revenue") || name.includes("mrr")) {
+                finance.revenue = generateCurve(target);
+                finance.mrr = target;
+            } else if (name.includes("burn") || name.includes("expense")) {
+                finance.expenses = generateCurve(target); // expenses usually flat or grow
+                finance.burnRate = target;
+            } else if (name.includes("runway")) {
+                finance.runway = kpi.value; // Single value
+            }
+        }
+    });
+
+    // Fallback if no relevant KPIs found
+    if (finance.expenses.length === 0) finance.expenses = generateCurve(5000);
+    if (marketing.websiteVisitors.length === 0) marketing.websiteVisitors = generateCurve(1000);
+
+    return { marketing, finance };
 }

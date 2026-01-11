@@ -27,13 +27,7 @@ class AgentOrchestrator:
     
     async def run_full_orchestration(self, startup: Startup) -> dict[str, Any]:
         """
-        Run the complete agent orchestration flow.
-        
-        Order:
-        1. Product Agent (first)
-        2. Tech Agent (after Product)
-        3. Marketing & Finance (parallel)
-        4. Advisor Agent (last)
+        Run the complete agent orchestration flow using LangGraph.
         
         Args:
             startup: The startup to run orchestration for
@@ -41,76 +35,60 @@ class AgentOrchestrator:
         Returns:
             Combined results from all agents
         """
-        logger.info(f"Starting orchestration for startup {startup.id}")
-        results = {}
+        logger.info(f"Starting LangGraph orchestration for startup {startup.id}")
         
-        # 1. Product Agent runs FIRST
-        logger.info("Running Product Agent...")
-        product_input = {
+        # Import here to avoid circular dependencies if any
+        from app.agents.graph import agent_graph
+        
+        initial_state = {
+            "startup_id": startup.id,
             "goal": startup.goal,
             "domain": startup.domain,
             "team_size": startup.team_size,
+            "product_output": {},
+            "tech_output": {},
+            "marketing_output": {},
+            "finance_output": {},
+            "advisor_output": {},
+            "logs": []
         }
-        product_output = await self.product_agent.run(product_input)
-        results["product"] = product_output
+        
+        # Execute the graph
+        final_state = await agent_graph.ainvoke(initial_state)
+        
+        # Extract outputs
+        product_output = final_state.get("product_output", {})
+        tech_output = final_state.get("tech_output", {})
+        marketing_output = final_state.get("marketing_output", {})
+        finance_output = final_state.get("finance_output", {})
+        advisor_output = final_state.get("advisor_output", {})
+        
+        results = {
+            "product": product_output,
+            "tech": tech_output,
+            "marketing": marketing_output,
+            "finance": finance_output,
+            "advisor": advisor_output
+        }
+        
+        # Save agent logs
         await self._save_agent_log(startup.id, "product", product_output)
-        await self._save_tasks_from_product(startup.id, product_output)
-        
-        # 2. Tech Agent runs AFTER Product
-        logger.info("Running Tech Agent...")
-        tech_input = {
-            "product_output": product_output,
-            "team_size": startup.team_size,
-        }
-        tech_output = await self.tech_agent.run(tech_input)
-        results["tech"] = tech_output
         await self._save_agent_log(startup.id, "tech", tech_output)
-        await self._save_tasks_from_tech(startup.id, tech_output)
-        
-        # 3. Marketing & Finance run IN PARALLEL
-        logger.info("Running Marketing and Finance Agents in parallel...")
-        timeline_days = product_output.get("recommended_launch_timeline_days", 60)
-        
-        marketing_input = {
-            "product_output": product_output,
-            "timeline_days": timeline_days,
-            "domain": startup.domain,
-        }
-        finance_input = {
-            "tasks": product_output.get("tasks", []) + tech_output.get("tasks", []),
-            "timeline_days": timeline_days,
-            "team_size": startup.team_size,
-        }
-        
-        marketing_task = self.marketing_agent.run(marketing_input)
-        finance_task = self.finance_agent.run(finance_input)
-        
-        marketing_output, finance_output = await asyncio.gather(
-            marketing_task, finance_task
-        )
-        
-        results["marketing"] = marketing_output
-        results["finance"] = finance_output
-        
         await self._save_agent_log(startup.id, "marketing", marketing_output)
         await self._save_agent_log(startup.id, "finance", finance_output)
-        await self._save_tasks_from_marketing(startup.id, marketing_output)
-        await self._save_tasks_from_finance(startup.id, finance_output)
-        await self._save_kpis(startup.id, marketing_output, finance_output)
-        
-        # 4. Advisor Agent runs LAST
-        logger.info("Running Advisor Agent...")
-        advisor_input = {
-            "product_output": product_output,
-            "tech_output": tech_output,
-            "marketing_output": marketing_output,
-            "finance_output": finance_output,
-            "startup_goal": startup.goal,
-            "team_size": startup.team_size,
-        }
-        advisor_output = await self.advisor_agent.run(advisor_input)
-        results["advisor"] = advisor_output
         await self._save_agent_log(startup.id, "advisor", advisor_output)
+        
+        # Save all tasks with proper cross-department dependencies
+        await self._save_all_tasks_with_dependencies(
+            startup.id,
+            product_output.get("tasks", []),
+            tech_output.get("tasks", []),
+            marketing_output.get("tasks", []),
+            finance_output.get("tasks", [])
+        )
+        
+        # Save KPIs and alerts
+        await self._save_kpis(startup.id, marketing_output, finance_output)
         await self._save_alerts(startup.id, advisor_output)
         
         await self.db.commit()
@@ -143,65 +121,136 @@ class AgentOrchestrator:
         )
         self.db.add(log)
     
-    async def _save_tasks_from_product(self, startup_id: int, output: dict):
-        """Save tasks from Product Agent output."""
-        for task_data in output.get("tasks", []):
+    async def _save_all_tasks_with_dependencies(
+        self,
+        startup_id: int,
+        product_tasks: list,
+        tech_tasks: list,
+        marketing_tasks: list,
+        finance_tasks: list
+    ):
+        """
+        Save all tasks with proper cross-department dependencies.
+        
+        Creates a flow graph where:
+        - Product tasks are foundation (level 0)
+        - Tech tasks depend on product tasks (level 1)
+        - Marketing/Finance can run in parallel after some tech tasks (level 2)
+        - All tasks get proper database IDs for frontend graph visualization
+        """
+        all_tasks = []
+        task_id_map = {}  # Maps (category, local_index) -> global_index
+        
+        # Collect all tasks with their category and assign global indices
+        global_idx = 0
+        
+        # Product tasks (Level 0 - Foundation)
+        for i, task_data in enumerate(product_tasks):
+            task_id_map[("product", i)] = global_idx
+            all_tasks.append({
+                **task_data,
+                "category": TaskCategory.PRODUCT,
+                "global_idx": global_idx,
+                "local_deps": task_data.get("dependencies", []),
+                "dept": "product"
+            })
+            global_idx += 1
+        
+        # Tech tasks (Level 1 - Depends on Product)
+        for i, task_data in enumerate(tech_tasks):
+            task_id_map[("tech", i)] = global_idx
+            all_tasks.append({
+                **task_data,
+                "category": TaskCategory.TECH,
+                "global_idx": global_idx,
+                "local_deps": task_data.get("dependencies", []),
+                "dept": "tech"
+            })
+            global_idx += 1
+        
+        # Marketing tasks (Level 2 - Can run parallel with Finance)
+        for i, task_data in enumerate(marketing_tasks):
+            task_id_map[("marketing", i)] = global_idx
+            all_tasks.append({
+                **task_data,
+                "category": TaskCategory.MARKETING,
+                "global_idx": global_idx,
+                "local_deps": task_data.get("dependencies", []),
+                "dept": "marketing"
+            })
+            global_idx += 1
+        
+        # Finance tasks (Level 2 - Can run parallel with Marketing)
+        for i, task_data in enumerate(finance_tasks):
+            task_id_map[("finance", i)] = global_idx
+            all_tasks.append({
+                **task_data,
+                "category": TaskCategory.FINANCE,
+                "global_idx": global_idx,
+                "local_deps": task_data.get("dependencies", []),
+                "dept": "finance"
+            })
+            global_idx += 1
+        
+        # Now save tasks and build proper dependency graph
+        saved_tasks = []
+        for task_data in all_tasks:
+            # Build global dependencies
+            global_deps = []
+            dept = task_data["dept"]
+            
+            # Map local dependencies to global indices
+            for local_dep in task_data["local_deps"]:
+                if isinstance(local_dep, int) and local_dep >= 0:
+                    # Map to same department first
+                    dep_key = (dept, local_dep)
+                    if dep_key in task_id_map:
+                        global_deps.append(task_id_map[dep_key])
+            
+            # Add cross-department dependencies for execution flow
+            if dept == "tech" and len(product_tasks) > 0:
+                # First tech task depends on first product task
+                if task_data["global_idx"] == task_id_map.get(("tech", 0)):
+                    if ("product", 0) in task_id_map:
+                        global_deps.append(task_id_map[("product", 0)])
+            
+            if dept == "marketing" and len(tech_tasks) > 0:
+                # First marketing task depends on first tech task
+                if task_data["global_idx"] == task_id_map.get(("marketing", 0)):
+                    if ("tech", 0) in task_id_map:
+                        global_deps.append(task_id_map[("tech", 0)])
+            
+            if dept == "finance" and len(tech_tasks) > 0:
+                # First finance task depends on first tech task
+                if task_data["global_idx"] == task_id_map.get(("finance", 0)):
+                    if ("tech", 0) in task_id_map:
+                        global_deps.append(task_id_map[("tech", 0)])
+            
             task = Task(
                 startup_id=startup_id,
                 title=task_data.get("title", "Untitled Task"),
                 description=task_data.get("description"),
-                category=TaskCategory.PRODUCT,
+                category=task_data["category"],
                 priority=task_data.get("priority", 3),
                 estimated_days=task_data.get("estimated_days", 1),
-                status=TaskStatus.PENDING,
-                dependencies=task_data.get("dependencies", []),
+                status=TaskStatus.PENDING,  # Tasks start as pending
+                dependencies=list(set(global_deps)),  # Remove duplicates
             )
             self.db.add(task)
-    
-    async def _save_tasks_from_tech(self, startup_id: int, output: dict):
-        """Save tasks from Tech Agent output."""
-        for task_data in output.get("tasks", []):
-            task = Task(
-                startup_id=startup_id,
-                title=task_data.get("title", "Untitled Task"),
-                description=task_data.get("description"),
-                category=TaskCategory.TECH,
-                priority=task_data.get("priority", 3),
-                estimated_days=task_data.get("estimated_days", 1),
-                status=TaskStatus.PENDING,
-                dependencies=task_data.get("dependencies", []),
-            )
-            self.db.add(task)
-    
-    async def _save_tasks_from_marketing(self, startup_id: int, output: dict):
-        """Save tasks from Marketing Agent output."""
-        for task_data in output.get("tasks", []):
-            task = Task(
-                startup_id=startup_id,
-                title=task_data.get("title", "Untitled Task"),
-                description=task_data.get("description"),
-                category=TaskCategory.MARKETING,
-                priority=task_data.get("priority", 3),
-                estimated_days=task_data.get("estimated_days", 1),
-                status=TaskStatus.PENDING,
-                dependencies=task_data.get("dependencies", []),
-            )
-            self.db.add(task)
-    
-    async def _save_tasks_from_finance(self, startup_id: int, output: dict):
-        """Save tasks from Finance Agent output."""
-        for task_data in output.get("tasks", []):
-            task = Task(
-                startup_id=startup_id,
-                title=task_data.get("title", "Untitled Task"),
-                description=task_data.get("description"),
-                category=TaskCategory.FINANCE,
-                priority=task_data.get("priority", 3),
-                estimated_days=task_data.get("estimated_days", 1),
-                status=TaskStatus.PENDING,
-                dependencies=task_data.get("dependencies", []),
-            )
-            self.db.add(task)
+            saved_tasks.append(task)
+        
+        # Flush to get actual database IDs
+        await self.db.flush()
+        
+        # Update dependencies to use actual database IDs
+        id_mapping = {i: saved_tasks[i].id for i in range(len(saved_tasks))}
+        
+        for i, task in enumerate(saved_tasks):
+            if task.dependencies:
+                # Convert global indices to actual database IDs
+                task.dependencies = [id_mapping.get(dep_idx, dep_idx) for dep_idx in task.dependencies if dep_idx in id_mapping]
+        
+        return saved_tasks
     
     async def _save_kpis(self, startup_id: int, marketing_output: dict, finance_output: dict):
         """Save KPIs from Marketing and Finance outputs."""

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import startup_router, task_router, alert_router
+from app.routers import startup_router, task_router, alert_router, export_router
 
 # Configure logging
 logging.basicConfig(
@@ -67,6 +67,7 @@ app.add_middleware(
 app.include_router(startup_router)
 app.include_router(task_router)
 app.include_router(alert_router)
+app.include_router(export_router)
 
 
 @app.get("/")

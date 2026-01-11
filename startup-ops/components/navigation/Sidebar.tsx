@@ -12,11 +12,12 @@ import {
   BarChart3,
   Sparkles,
   ChevronRight,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Goal Input", icon: Target },
+  // { href: "/", label: "New Plan", icon: Target }, // Maybe keep a link back to home to create new?
   { href: "/plan", label: "Execution Plan", icon: ListTodo },
   { href: "/graph", label: "Dependencies", icon: GitBranch },
   { href: "/metrics", label: "KPI & Metrics", icon: BarChart3 },
@@ -26,74 +27,73 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <motion.aside
-      initial={{ x: -100, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
-    >
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border z-50 flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="p-2 rounded-xl gradient-primary glow-sm">
-            <Sparkles className="w-6 h-6 text-white" />
+      <div className="p-6 h-16 flex items-center border-b border-sidebar-border">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="p-1.5 rounded-lg bg-sidebar-primary/10 group-hover:bg-sidebar-primary/20 transition-colors">
+            <Sparkles className="w-5 h-5 text-sidebar-primary" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">
-              StartupOps
-            </h1>
-            <p className="text-xs text-sidebar-foreground/60">AI Co-Founder</p>
-          </div>
+          <span className="font-bold text-sidebar-foreground tracking-tight">StartupOps</span>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
 
           return (
             <Link key={item.href} href={item.href}>
-              <motion.div
-                whileHover={{ x: 4 }}
-                whileTap={{ scale: 0.98 }}
+              <div
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg glow-sm"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                    ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                 )}
               >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
+                <Icon className={cn("w-4 h-4", isActive ? "text-sidebar-primary" : "text-sidebar-foreground/60")} />
+                <span>{item.label}</span>
                 {isActive && (
-                  <ChevronRight className="w-4 h-4 ml-auto" />
+                  <div className="ml-auto w-1 h-1 rounded-full bg-sidebar-primary" />
                 )}
-              </motion.div>
+              </div>
             </Link>
           );
         })}
       </nav>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Compact */}
       <div className="p-4 border-t border-sidebar-border">
-        <div className="glass-subtle rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sidebar-foreground/80">
-            <Activity className="w-4 h-4 text-status-healthy" />
-            <span className="text-sm">Health: 87%</span>
+        <div className="flex flex-col gap-3 p-3 rounded-lg bg-sidebar-accent/50 border border-sidebar-border/50">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Health</span>
+            <span className="text-emerald-500 font-medium">87%</span>
           </div>
-          <div className="flex items-center gap-2 text-sidebar-foreground/80">
-            <Bell className="w-4 h-4 text-status-warning" />
-            <span className="text-sm">3 Alerts</span>
+          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 w-[87%]" />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+            <Activity className="w-3 h-3" />
+            <span>On Track</span>
           </div>
         </div>
       </div>
 
-      {/* Version */}
-      <div className="p-4 text-center">
-        <span className="text-xs text-sidebar-foreground/40">v1.0.0 Beta</span>
+      {/* User / Settings */}
+      <div className="p-4 border-t border-sidebar-border">
+        <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors text-left">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
+            AI
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncated">My Startup</p>
+            <p className="text-xs text-muted-foreground">Free Plan</p>
+          </div>
+        </button>
       </div>
-    </motion.aside>
+    </aside>
   );
 }

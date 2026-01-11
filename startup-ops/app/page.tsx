@@ -2,77 +2,81 @@
 
 import { motion } from "framer-motion";
 import { GoalInputForm } from "@/components/goal/GoalInputForm";
+import { Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
-      {/* Background decoration */}
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Subtle Glow Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.4 }}
-          className="absolute top-1/2 right-1/3 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl"
-        />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary/20 blur-[120px] rounded-full opacity-20" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/10 blur-[100px] rounded-full opacity-20" />
       </div>
 
-      {/* Welcome content */}
-      <div className="relative z-10 w-full max-w-4xl">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="text-gradient">AI-Powered</span>{" "}
-            <span className="text-foreground">Execution Plans</span>
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Transform your startup vision into actionable milestones. Get comprehensive
-            execution plans, track dependencies, and monitor your progress with AI insights.
-          </p>
-        </motion.div>
+      {/* Header / Nav (Minimal) */}
+      <header className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-white/10">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <span className="font-bold text-lg tracking-tight">StartupOps</span>
+        </div>
 
-        <GoalInputForm />
+        {/* Optional decorative links */}
+        {/* <div className="text-sm text-muted-foreground hidden md:flex gap-6">
+           <span>Features</span>
+           <span>Pricing</span>
+           <span>Docs</span>
+        </div> */}
+      </header>
 
-        {/* Feature highlights */}
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-3xl flex flex-col items-center text-center space-y-8">
+
+        {/* Hero Text */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 text-center"
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="space-y-4"
         >
-          {[
-            { title: "AI Task Generation", desc: "Automated execution plans" },
-            { title: "Dependency Mapping", desc: "Visual task relationships" },
-            { title: "Real-time KPIs", desc: "Track growth metrics" },
-          ].map((feature, i) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.7 + i * 0.1 }}
-              className="p-4"
-            >
-              <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground">{feature.desc}</p>
-            </motion.div>
-          ))}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-white/80 mb-4">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+            Introduced AI Co-Founder V2
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1]">
+            What will you <span className="text-blue-500">build</span> today?
+          </h1>
+
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            Create stunning startups, execute plans, and track growth with your personal AI co-founder.
+          </p>
         </motion.div>
+
+        {/* Input Form */}
+        <div className="w-full">
+          <GoalInputForm />
+        </div>
+
+        {/* Short Footer / Social Proof */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 1 }}
+          className="pt-12 flex gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500"
+        >
+          {/* Add logos or simple trust indicators if needed */}
+        </motion.div>
+
       </div>
+
+      {/* Footer Gradient Line */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-30" />
     </div>
   );
 }

@@ -97,7 +97,7 @@ export function FinanceCharts({ metrics }: FinanceChartsProps) {
                                         borderRadius: "8px",
                                         color: "oklch(0.95 0.01 260)",
                                     }}
-                                    formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
+                                    formatter={(value: any) => [`$${value.toLocaleString()}`, ""]}
                                 />
                                 <Bar dataKey="revenue" fill="oklch(0.70 0.20 145)" radius={[4, 4, 0, 0]} name="Revenue" />
                                 <Bar dataKey="expenses" fill="oklch(0.65 0.22 25)" radius={[4, 4, 0, 0]} name="Expenses" />
@@ -129,7 +129,7 @@ export function FinanceCharts({ metrics }: FinanceChartsProps) {
                                             borderRadius: "8px",
                                             color: "oklch(0.95 0.01 260)",
                                         }}
-                                        formatter={(value: number) => [`$${value.toLocaleString()}`, "Profit"]}
+                                        formatter={(value: any) => [`$${value.toLocaleString()}`, "Profit"]}
                                     />
                                     <Line
                                         type="monotone"
@@ -174,7 +174,7 @@ export function FinanceCharts({ metrics }: FinanceChartsProps) {
                                             borderRadius: "8px",
                                             color: "oklch(0.95 0.01 260)",
                                         }}
-                                        formatter={(value: number) => [`${value}%`, ""]}
+                                        formatter={(value: any) => [`${value}%`, ""]}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>

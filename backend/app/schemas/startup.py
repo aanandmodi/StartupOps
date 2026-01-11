@@ -28,6 +28,8 @@ class ExecutionHealth(BaseModel):
     score: float = Field(..., ge=0, le=100, description="Health score 0-100")
     status: str = Field(..., description="Health status: healthy, at_risk, critical")
     completed_tasks: int
+    in_progress_tasks: int
+    pending_tasks: int
     total_tasks: int
     blocked_tasks: int
     overdue_tasks: int

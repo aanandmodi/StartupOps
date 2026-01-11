@@ -4,21 +4,21 @@ import logging
 from typing import Any
 import httpx
 
-from app.config import get_settings
+from app.config import get_settings, Settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-class OpenRouterClient:
-    """Centralized client for OpenRouter API calls."""
+class LLMClient:
+    """Client for interacting with LLM APIs (Groq)."""
     
-    def __init__(self):
-        self.base_url = settings.openrouter_base_url
-        self.api_key = settings.openrouter_api_key
+    def __init__(self, settings: Settings):
+        self.api_key = settings.groq_api_key
+        self.base_url = settings.groq_base_url
         self.timeout = settings.api_timeout
         self.max_retries = settings.max_retries
-    
+        
     async def chat_completion(
         self,
         model: str,
@@ -27,10 +27,10 @@ class OpenRouterClient:
         max_tokens: int = 4000,
     ) -> dict[str, Any]:
         """
-        Send a chat completion request to OpenRouter.
+        Send a chat completion request to Groq.
         
         Args:
-            model: The model identifier (e.g., 'anthropic/claude-3.5-sonnet')
+            model: The model identifier (e.g., 'llama-3.1-8b-instant')
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
@@ -45,8 +45,6 @@ class OpenRouterClient:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://startupops.local",
-            "X-Title": "StartupOps Agent Platform",
         }
         
         payload = {
@@ -54,7 +52,7 @@ class OpenRouterClient:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"},
+            # "response_format": {"type": "json_object"}, # Groq supports this for Llama 3.1, but keeping it simple for now
         }
         
         for attempt in range(self.max_retries):
@@ -96,5 +94,4 @@ class OpenRouterClient:
         return {"error": "Max retries exceeded"}
 
 
-# Singleton instance
-openrouter_client = OpenRouterClient()
+

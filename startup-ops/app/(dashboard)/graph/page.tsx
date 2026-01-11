@@ -13,6 +13,7 @@ import {
     Edge,
     MarkerType,
     BackgroundVariant,
+    NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
@@ -24,14 +25,25 @@ import { GitBranch, ZoomIn, Maximize2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoadingGrid } from "@/components/common/LoadingSkeleton";
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
     taskNode: TaskNode,
 };
 
-// Position nodes based on dependencies
+// Position nodes based on dependencies and categories
 function generateGraphLayout(tasks: Task[]): { nodes: Node[]; edges: Edge[] } {
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
     const levels: Map<string, number> = new Map();
+
+    // Category order for horizontal positioning
+    const categoryOrder: Record<string, number> = {
+        product: 0,
+        tech: 1,
+        marketing: 2,
+        finance: 3,
+        operations: 4,
+        hiring: 5,
+        legal: 6,
+    };
 
     // Calculate level for each task based on dependencies
     function getLevel(taskId: string, visited: Set<string> = new Set()): number {
@@ -58,7 +70,7 @@ function generateGraphLayout(tasks: Task[]): { nodes: Node[]; edges: Edge[] } {
 
     tasks.forEach((task) => getLevel(task.id));
 
-    // Group tasks by level
+    // Group tasks by level and category
     const levelGroups: Map<number, Task[]> = new Map();
     tasks.forEach((task) => {
         const level = levels.get(task.id) || 0;
@@ -68,44 +80,76 @@ function generateGraphLayout(tasks: Task[]): { nodes: Node[]; edges: Edge[] } {
         levelGroups.get(level)!.push(task);
     });
 
-    // Create nodes
+    // Sort tasks within each level by category
+    levelGroups.forEach((tasksInLevel, level) => {
+        tasksInLevel.sort((a, b) =>
+            (categoryOrder[a.category] || 99) - (categoryOrder[b.category] || 99)
+        );
+    });
+
+    // Create nodes with improved spacing
     const nodes: Node[] = [];
-    const xSpacing = 280;
-    const ySpacing = 140;
+    const xSpacing = 320;  // Increased for wider nodes
+    const ySpacing = 180;  // Increased for better vertical separation
 
     levelGroups.forEach((tasksInLevel, level) => {
-        const startX = -(tasksInLevel.length - 1) * xSpacing / 2;
+        const totalWidth = (tasksInLevel.length - 1) * xSpacing;
+        const startX = -totalWidth / 2;
+
         tasksInLevel.forEach((task, index) => {
+            // Add slight offset based on category for visual grouping
+            const categoryOffset = (categoryOrder[task.category] || 0) * 10;
+
             nodes.push({
                 id: task.id,
                 type: "taskNode",
-                position: { x: startX + index * xSpacing, y: level * ySpacing },
+                position: {
+                    x: startX + index * xSpacing,
+                    y: level * ySpacing + categoryOffset
+                },
                 data: { task },
             });
         });
     });
 
-    // Create edges
+    // Category color mapping for edges
+    const categoryEdgeColors: Record<string, string> = {
+        product: "#8b5cf6",  // violet
+        tech: "#3b82f6",     // blue
+        marketing: "#ec4899", // pink
+        finance: "#10b981",  // emerald
+        operations: "#f97316", // orange
+        hiring: "#6366f1",   // indigo
+        legal: "#64748b",    // slate
+    };
+
+    // Create edges with enhanced styling
     const edges: Edge[] = [];
     tasks.forEach((task) => {
         task.dependencies.forEach((depId) => {
+            const sourceTask = taskMap.get(depId);
+            const edgeColor = categoryEdgeColors[task.category] || "#8b5cf6";
+
             edges.push({
                 id: `${depId}-${task.id}`,
                 source: depId,
                 target: task.id,
                 type: "smoothstep",
-                animated: task.status === "in-progress",
+                animated: true, // Always animate for visual appeal
                 style: {
                     stroke: task.status === "blocked"
-                        ? "oklch(0.65 0.22 25)"
-                        : "oklch(0.55 0.25 260)",
-                    strokeWidth: 2,
+                        ? "#ef4444"  // red for blocked
+                        : edgeColor,
+                    strokeWidth: 3,
+                    strokeLinecap: "round",
                 },
                 markerEnd: {
                     type: MarkerType.ArrowClosed,
                     color: task.status === "blocked"
-                        ? "oklch(0.65 0.22 25)"
-                        : "oklch(0.55 0.25 260)",
+                        ? "#ef4444"
+                        : edgeColor,
+                    width: 20,
+                    height: 20,
                 },
             });
         });
@@ -196,31 +240,51 @@ export default function GraphPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="glass-card p-4 mb-6 flex items-center gap-6 flex-wrap"
+                className="glass-card p-4 mb-6 space-y-4"
             >
-                <span className="text-sm font-medium text-muted-foreground">Legend:</span>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-status-healthy" />
-                    <span className="text-sm text-foreground">Completed</span>
+                {/* Stats Row */}
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <span className="text-xs font-medium text-violet-300">Product</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span className="text-xs font-medium text-blue-300">Tech</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/20">
+                        <div className="w-2 h-2 rounded-full bg-pink-500" />
+                        <span className="text-xs font-medium text-pink-300">Marketing</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs font-medium text-emerald-300">Finance</span>
+                    </div>
+
+                    <div className="flex items-center gap-4 ml-auto">
+                        <div className="text-center px-4 py-1 rounded-lg bg-white/5">
+                            <span className="text-lg font-bold text-foreground">{tasks.length}</span>
+                            <span className="text-xs text-muted-foreground ml-1">Tasks</span>
+                        </div>
+                        <div className="text-center px-4 py-1 rounded-lg bg-white/5">
+                            <span className="text-lg font-bold text-emerald-400">
+                                {tasks.filter(t => t.dependencies.length > 0).length}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-1">Connections</span>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-primary" />
-                    <span className="text-sm text-foreground">In Progress</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-muted-foreground" />
-                    <span className="text-sm text-foreground">Pending</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-status-critical" />
-                    <span className="text-sm text-foreground">Blocked</span>
-                </div>
-                <div className="flex items-center gap-3 ml-auto text-xs text-muted-foreground">
+
+                {/* Instructions */}
+                <div className="flex items-center gap-6 text-xs text-muted-foreground border-t border-white/10 pt-3">
                     <span className="flex items-center gap-1">
                         <ZoomIn className="w-4 h-4" /> Scroll to zoom
                     </span>
                     <span className="flex items-center gap-1">
                         <Maximize2 className="w-4 h-4" /> Drag to pan
+                    </span>
+                    <span className="text-primary/70">
+                        → Arrows show task dependencies (do A before B)
                     </span>
                 </div>
             </motion.div>

@@ -64,7 +64,7 @@ OUTPUT FORMAT - You MUST return ONLY valid JSON with this exact structure:
             "category": "marketing",
             "priority": 1-5,
             "estimated_days": number,
-            "dependencies": []
+            "dependencies": [list of task indices, e.g., [1, 2]]
         }
     ],
     "campaign_ideas": [
@@ -81,7 +81,9 @@ RULES:
 - Output ONLY JSON, no markdown
 - Be specific with target numbers
 - Consider startup budget constraints
-- Focus on high-impact, low-cost tactics for early stage"""
+- Focus on high-impact, low-cost tactics for early stage
+- SPECIFIC CHANNELS: Name specific subreddits, newsletters, or communities (e.g. "IndieHackers", "r/SaaS").
+- Avoid generic "Social Media Marketing" - specify "Twitter Thread strategy" or "LinkedIn Founder Stories"."""
     
     def get_mock_response(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Return mock response for testing without API."""
@@ -196,3 +198,68 @@ RULES:
                 }
             ]
         }
+
+    def generate_launch_calendar_ics(self, data: dict[str, Any]) -> str:
+        """Generate an ICS calendar file for launch tasks."""
+        tasks = data.get("tasks", [])
+        
+        ics_content = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//StartupOps//Launch Calendar//EN",
+        ]
+        
+        import datetime
+        now = datetime.datetime.now()
+        
+        for i, task in enumerate(tasks):
+            # Stagger tasks by estimated_days for a simple schedule
+            start_date = now + datetime.timedelta(days=i*2)
+            end_date = start_date + datetime.timedelta(days=task.get("estimated_days", 1))
+            
+            dtstart = start_date.strftime("%Y%m%dT%H%M%S")
+            dtend = end_date.strftime("%Y%m%dT%H%M%S")
+            
+            ics_content.extend([
+                "BEGIN:VEVENT",
+                f"SUMMARY:{task.get('title')}",
+                f"DESCRIPTION:{task.get('description')}",
+                f"DTSTART:{dtstart}",
+                f"DTEND:{dtend}",
+                "END:VEVENT"
+            ])
+            
+        ics_content.append("END:VCALENDAR")
+        return "\n".join(ics_content)
+
+    def generate_social_posts_txt(self, data: dict[str, Any]) -> str:
+        """Generate drafted social media posts."""
+        campaigns = data.get("campaign_ideas", [])
+        launch_strat = data.get("launch_strategy", {})
+        
+        txt = "--- SOCIAL MEDIA CONTENT DRAFTS & STRATEGY ---\n"
+        txt += f"Strategy Phase: {launch_strat.get('phase', 'Launch').title()}\n\n"
+        
+        txt += "1. ENGAGEMENT GUIDELINES\n"
+        txt += "- Voice: Professional yet accessible.\n"
+        txt += "- Frequency: 1 post/day on primary channels.\n"
+        txt += "- Hashtags: Mix of niche (#SaaS) and broad (#Tech).\n\n"
+        
+        txt += "2. CONTENT CALENDAR PREVIEW\n"
+        txt += "Week 1: Teaser Content\n"
+        txt += "Week 2: Value Proposition & Education\n"
+        txt += "Week 3: Social Proof & Launch\n\n"
+        
+        txt += "3. DRAFTED POSTS\n"
+        for i, camp in enumerate(campaigns, 1):
+            txt += f"CAMPAIGN {i}: {camp.get('name')} ({camp.get('type')})\n"
+            txt += f"Est. Reach: {camp.get('estimated_reach')}\n"
+            txt += "-" * 30 + "\n"
+            txt += f"Draft Post:\n"
+            txt += f"🚀 Excited to announce our new initiative: {camp.get('name')}!\n\n"
+            txt += f"We are solving real problems for our users. Join us on this journey.\n\n"
+            txt += f"👉 Sign up for early access: [Link]\n\n"
+            txt += f"#Startup #Growth #{camp.get('type').title()}\n"
+            txt += "-" * 30 + "\n\n"
+            
+        return txt

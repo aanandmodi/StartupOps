@@ -77,7 +77,8 @@ OUTPUT FORMAT - You MUST return ONLY valid JSON with this exact structure:
 }
 
 RULES:
-- Output ONLY JSON, no markdown
+- Output ONLY JSON, no markdown, no code blocks, no intro/outro text.
+- Start the output with { and end with }.
 - Be direct and actionable
 - Prioritize by urgency and impact
 - Consider resource constraints in recommendations"""

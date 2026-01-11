@@ -10,7 +10,7 @@ class TaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     category: TaskCategory
     priority: int = Field(1, ge=1, le=5)
-    estimated_days: int = Field(1, ge=1, le=365)
+    estimated_days: float = Field(1, ge=0.5, le=365)
     dependencies: list[int] = Field(default_factory=list)
 
 
@@ -18,7 +18,7 @@ class TaskUpdate(BaseModel):
     """Schema for updating a task."""
     status: Optional[TaskStatus] = None
     priority: Optional[int] = Field(None, ge=1, le=5)
-    estimated_days: Optional[int] = Field(None, ge=1, le=365)
+    estimated_days: Optional[float] = Field(None, ge=0.5, le=365)
 
 
 class TaskResponse(BaseModel):
@@ -29,7 +29,7 @@ class TaskResponse(BaseModel):
     description: Optional[str]
     category: TaskCategory
     priority: int
-    estimated_days: int
+    estimated_days: float
     status: TaskStatus
     dependencies: list[int]
     

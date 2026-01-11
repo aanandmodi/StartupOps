@@ -126,19 +126,23 @@ class DriftEngine:
                         break
         
         # Calculate score (0-100)
-        completion_weight = 0.6
-        progress_weight = 0.3
-        block_penalty = 0.1
-        
-        completion_score = (completed / total) * 100 if total > 0 else 100
-        progress_score = ((completed + in_progress * 0.5) / total) * 100 if total > 0 else 100
-        block_penalty_score = (blocked / total) * 100 if total > 0 else 0
-        
-        final_score = (
-            completion_score * completion_weight +
-            progress_score * progress_weight -
-            block_penalty_score * block_penalty
-        )
+        # If all tasks are completed, return 100
+        if completed == total:
+            final_score = 100
+        else:
+            completion_weight = 0.6
+            progress_weight = 0.3
+            block_penalty = 0.1
+            
+            completion_score = (completed / total) * 100 if total > 0 else 100
+            progress_score = ((completed + in_progress * 0.5) / total) * 100 if total > 0 else 100
+            block_penalty_score = (blocked / total) * 100 if total > 0 else 0
+            
+            final_score = (
+                completion_score * completion_weight +
+                progress_score * progress_weight -
+                block_penalty_score * block_penalty
+            )
         final_score = max(0, min(100, final_score))
         
         # Determine status
@@ -153,6 +157,8 @@ class DriftEngine:
             "score": round(final_score, 1),
             "status": status,
             "completed_tasks": completed,
+            "in_progress_tasks": in_progress,
+            "pending_tasks": total - completed - in_progress,
             "total_tasks": total,
             "blocked_tasks": blocked,
             "overdue_tasks": 0,  # Would need due dates to calculate
