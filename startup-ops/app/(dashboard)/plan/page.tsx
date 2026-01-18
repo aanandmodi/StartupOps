@@ -11,6 +11,7 @@ import { ExportsPanel } from "@/components/plan/ExportsPanel";
 import { LoadingGrid } from "@/components/common/LoadingSkeleton";
 import { getDashboard, convertBackendTask, convertBackendAlert } from "@/lib/api";
 import { ListTodo, RefreshCw, Sparkles, Zap, Target, TrendingUp, Rocket } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TaskCard } from "@/components/plan/TaskCard";
@@ -122,7 +123,7 @@ export default function PlanPage() {
             >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-4">
                     <div className="flex items-center gap-4">
-                        <motion.div 
+                        <motion.div
                             className={cn(
                                 "p-3 rounded-2xl bg-gradient-to-br shadow-lg",
                                 categoryColors[selectedCategory]
@@ -162,7 +163,7 @@ export default function PlanPage() {
                 <div className="xl:col-span-3 space-y-6">
 
                     {/* Enhanced Category Tabs */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
@@ -184,7 +185,7 @@ export default function PlanPage() {
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                         className={cn(
-                                            "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 whitespace-nowrap group",
+                                            "relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 whitespace-nowrap group",
                                             isActive
                                                 ? "text-white shadow-lg"
                                                 : "hover:bg-white/5 text-muted-foreground hover:text-foreground"
@@ -210,8 +211,8 @@ export default function PlanPage() {
                                                 variant="secondary"
                                                 className={cn(
                                                     "ml-1 h-5 min-w-5 px-1.5 flex items-center justify-center text-xs transition-colors",
-                                                    isActive 
-                                                        ? "bg-white/20 text-white border-0" 
+                                                    isActive
+                                                        ? "bg-white/20 text-white border-0"
                                                         : "bg-white/5 text-muted-foreground group-hover:bg-white/10"
                                                 )}
                                             >
@@ -226,7 +227,7 @@ export default function PlanPage() {
 
                     {/* Enhanced Progress Bar */}
                     {currentTasks.length > 0 && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scaleX: 0.8 }}
                             animate={{ opacity: 1, scaleX: 1 }}
                             className="flex items-center gap-4 px-1"
@@ -281,7 +282,7 @@ export default function PlanPage() {
                             </AnimatePresence>
                         </motion.div>
                     ) : (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             className="glass-card p-16 text-center rounded-2xl border border-white/5"
@@ -326,3 +327,4 @@ export default function PlanPage() {
         </div>
     );
 }
+

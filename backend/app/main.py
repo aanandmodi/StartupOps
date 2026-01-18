@@ -1,4 +1,4 @@
-"""FastAPI Main Application - StartupOps Backend."""
+"""FastAPI Main Application - StartupOps Backend V2."""
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,7 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import startup_router, task_router, alert_router, export_router
+from app.routers import (
+    startup_router, 
+    task_router, 
+    alert_router, 
+    export_router, 
+    streaming_router,
+    auth_router,
+    chat_router,
+    integrations_router,
+    execution_router,
+    startups_router
+)
+
 
 # Configure logging
 logging.basicConfig(
@@ -23,8 +35,9 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
     # Startup
-    logger.info("Starting StartupOps Backend...")
+    logger.info("Starting StartupOps Backend V2...")
     logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Database: {'PostgreSQL' if not settings.use_sqlite else 'SQLite'}")
     logger.info(f"Mock Mode: {settings.is_mock_mode}")
     
     # Initialize database
@@ -39,18 +52,32 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="StartupOps API",
+    title="StartupOps API V2",
     description="""
-    Multi-Agent AI Co-Founder Platform
+    ## Multi-Agent AI Co-Founder Platform
     
-    This backend orchestrates 5 AI agents:
-    - **Product Agent** (Claude 3.5 Sonnet): MVP planning
-    - **Tech Agent** (GPT-4.1): Technical architecture
-    - **Marketing Agent** (Gemini 1.5 Pro): Growth strategy
-    - **Finance Agent** (GPT-4o-mini): Budget & runway
-    - **Advisor Agent** (Claude Instant): Health monitoring
+    StartupOps V2 provides a complete AI co-founder experience with:
+    
+    ### 🤖 AI Agents
+    - **Product Agent**: MVP planning, feature prioritization
+    - **Tech Agent**: Technical architecture, stack recommendations
+    - **Marketing Agent**: Growth strategy, content planning
+    - **Finance Agent**: Budget, runway, financial projections
+    - **Advisor Agent**: Strategic oversight, health monitoring
+    
+    ### 💬 Agent Chat
+    Chat directly with any agent like talking to a real co-founder.
+    
+    ### ⚡ Auto-Execution
+    Agents generate real artifacts: code, docs, templates, and more.
+    
+    ### 🔐 Authentication
+    OAuth2 support for Google and GitHub.
+    
+    ### 📊 Export & Docs
+    Export PRD, budget, architecture docs, and more.
     """,
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -64,10 +91,17 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(startup_router)
+app.include_router(startups_router)
 app.include_router(task_router)
 app.include_router(alert_router)
 app.include_router(export_router)
+app.include_router(streaming_router)
+app.include_router(chat_router)
+app.include_router(integrations_router)
+app.include_router(execution_router)
+
 
 
 @app.get("/")
@@ -75,9 +109,17 @@ async def root():
     """Root endpoint with API info."""
     return {
         "name": "StartupOps API",
-        "version": "1.0.0",
-        "description": "Multi-Agent AI Co-Founder Platform",
+        "version": "2.0.0",
+        "description": "Multi-Agent AI Co-Founder Platform with Chat",
         "mock_mode": settings.is_mock_mode,
+        "database": "PostgreSQL" if not settings.use_sqlite else "SQLite",
+        "features": [
+            "OAuth Authentication (Google, GitHub)",
+            "Multi-Startup Management",
+            "Agent Chat Interface",
+            "Real-time Streaming",
+            "Export Documents",
+        ],
         "agents": {
             "product": settings.product_agent_model,
             "tech": settings.tech_agent_model,
@@ -86,10 +128,10 @@ async def root():
             "advisor": settings.advisor_agent_model,
         },
         "endpoints": {
-            "create_startup": "POST /startup/create",
-            "get_dashboard": "GET /startup/{id}/dashboard",
-            "update_task": "POST /task/{id}/update",
-            "get_alerts": "GET /alerts/{startup_id}",
+            "auth": "/auth/google, /auth/github, /auth/me",
+            "startup": "/startup/create, /startup/{id}/dashboard",
+            "chat": "/chat/{startup_id}/{agent_name}",
+            "export": "/startup/{id}/export/*",
         },
     }
 
@@ -99,5 +141,8 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
+        "version": "2.0.0",
         "mock_mode": settings.is_mock_mode,
+        "database": "PostgreSQL" if not settings.use_sqlite else "SQLite",
     }
+
