@@ -31,7 +31,7 @@ StartupOps utilizes a modern, decoupled architecture powered by **Next.js** on t
 graph TD
     User[User / Client] -->|HTTPS| Frontend[Next.js Frontend]
     Frontend -->|REST API| Backend[FastAPI Backend]
-    Frontend -->|SDK| Firebase[Firebase (Auth & Firestore)]
+    Frontend -->|SDK| Firebase["Firebase (Auth & Firestore)"]
     
     subgraph "Backend AI Core"
         Backend -->|Orchestration| LangGraph[LangGraph Workflow]
