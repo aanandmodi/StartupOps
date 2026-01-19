@@ -14,8 +14,10 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# For Python 3.14 compatibility, use simpler password hashing
+# In production, switch back to bcrypt with proper async handling
+import hashlib
+import secrets
 
 
 class AuthService:
@@ -24,12 +26,20 @@ class AuthService:
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash."""
-        return pwd_context.verify(plain_password, hashed_password)
+        # Format: salt$hash
+        try:
+            salt, stored_hash = hashed_password.split("$")
+            computed_hash = hashlib.pbkdf2_hmac("sha256", plain_password.encode(), salt.encode(), 100000).hex()
+            return stored_hash == computed_hash
+        except:
+            return False
     
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """Hash a password."""
-        return pwd_context.hash(password)
+        """Hash a password with salt."""
+        salt = secrets.token_hex(16)
+        hash_value = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
+        return f"{salt}${hash_value}"
     
     @staticmethod
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -152,3 +162,34 @@ class AuthService:
         await db.commit()
         
         return user
+    
+    @staticmethod
+    async def create_local_user(
+        db: AsyncSession,
+        email: str,
+        name: str,
+        password: str
+    ) -> User:
+        """Create a new user with email/password authentication."""
+        # Check if user already exists
+        existing = await AuthService.get_user_by_email(db, email)
+        if existing:
+            raise ValueError("User with this email already exists")
+        
+        # Create new user with hashed password
+        user = User(
+            email=email,
+            name=name,
+            oauth_provider="local",
+            oauth_id=None,
+            password_hash=AuthService.get_password_hash(password),
+            is_verified=False,  # Email verification can be added later
+            last_login_at=datetime.utcnow()
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        
+        logger.info(f"Created new local user: {email}")
+        return user
+

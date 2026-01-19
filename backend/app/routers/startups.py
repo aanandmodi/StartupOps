@@ -1,14 +1,14 @@
-"""Startup management API routes."""
+"""Startup management API routes using Firestore."""
 import logging
+import uuid
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from sqlalchemy import select, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, Field
+from google.cloud import firestore
 
-from app.database import get_db
-from app.models import Startup, User
+from app.firebase_client import get_firebase_db
 from app.routers.auth import require_auth, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/startups", tags=["Startups"])
 
 class StartupListItem(BaseModel):
     """Startup list item response."""
-    id: int
+    id: str  # Firestore IDs are strings
     name: Optional[str]
     domain: str
     goal: str
@@ -51,142 +51,240 @@ class StartupUpdate(BaseModel):
 async def list_my_startups(
     status: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_auth)
+    user: dict = Depends(require_auth)
 ):
     """List all startups for the current user."""
-    query = select(Startup).where(Startup.user_id == user.id)
+    db = get_firebase_db()
+    uid = str(user.get("uid")) # Actually Firestore user IDs are strings (e.g. from Firebase Auth) - but let's check migration
+    # The migration used str(user.id) from SQL (int) as Doc ID for User.
+    # New users from Firebase Auth have a string UID (e.g. "AbCdEf123").
+    # We should query by 'user_id' field on startup doc. 
+    # But wait, original migration copied `user_id` as INTEGER from SQL.
+    # New startups created via Firebase Auth will have string UID.
+    # We need to handle this discrepancy or assume migration mapped SQL IDs to new UIDs? No, it didn't.
+    # Implementation detail: New startups will own the `uid` from Firebase.
+    
+    # Query: startups where user_id == uid
+    # Note: If migrating users, we should have mapped their SQL ID to Firebase UID if possible, but we couldn't properly.
+    # So old startups are owned by "1", "2". New startups owned by "firebase_uid".
+    # For now, we assume this user is NEW or we match string representation.
+    
+    startups_ref = db.collection("startups")
+    query = startups_ref.where(filter=firestore.FieldFilter("user_id", "==", uid if not uid.isnumeric() else int(uid)))
     
     if status:
-        query = query.where(Startup.status == status)
+        query = query.where(filter=firestore.FieldFilter("status", "==", status))
     
-    query = query.order_by(desc(Startup.created_at)).limit(limit)
+    query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
     
-    result = await db.execute(query)
-    startups = result.scalars().all()
+    docs = query.stream()
     
-    return [
-        StartupListItem(
-            id=s.id,
-            name=s.name,
-            domain=s.domain,
-            goal=s.goal,
-            status=s.status or "active",
-            created_at=s.created_at.isoformat(),
-            updated_at=s.updated_at.isoformat() if s.updated_at else None
-        )
-        for s in startups
-    ]
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        # Handle datetime serialization
+        created_at = data.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+        
+        updated_at = data.get("updated_at")
+        if isinstance(updated_at, datetime):
+            updated_at = updated_at.isoformat()
+
+        results.append(StartupListItem(
+            id=doc.id,
+            name=data.get("name"),
+            domain=data.get("domain", ""),
+            goal=data.get("goal", ""),
+            status=data.get("status", "active"),
+            created_at=str(created_at),
+            updated_at=str(updated_at)
+        ))
+    
+    return results
 
 
 @router.get("/all", response_model=List[StartupListItem])
 async def list_all_startups(
     limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user)
+    user: Optional[dict] = Depends(get_current_user)
 ):
     """List all startups (for demo/unauthenticated users)."""
-    query = select(Startup).order_by(desc(Startup.created_at)).limit(limit)
+    db = get_firebase_db()
+    startups_ref = db.collection("startups")
+    query = startups_ref.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
     
-    result = await db.execute(query)
-    startups = result.scalars().all()
+    docs = query.stream()
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        created_at = data.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+            
+        updated_at = data.get("updated_at")
+        if isinstance(updated_at, datetime):
+            updated_at = updated_at.isoformat()
+
+        results.append(StartupListItem(
+            id=doc.id,
+            name=data.get("name"),
+            domain=data.get("domain", ""),
+            goal=data.get("goal", ""),
+            status=data.get("status", "active"),
+            created_at=str(created_at),
+            updated_at=str(updated_at)
+        ))
+    return results
+
+
+@router.post("/", response_model=StartupListItem)
+async def create_startup(
+    data: StartupCreate,
+    user: dict = Depends(require_auth)
+):
+    """Create a new startup."""
+    db = get_firebase_db()
     
-    return [
-        StartupListItem(
-            id=s.id,
-            name=s.name,
-            domain=s.domain,
-            goal=s.goal,
-            status=s.status or "active",
-            created_at=s.created_at.isoformat(),
-            updated_at=s.updated_at.isoformat() if s.updated_at else None
-        )
-        for s in startups
-    ]
+    new_startup = {
+        "user_id": user.get("uid"),
+        "name": data.name,
+        "goal": data.goal,
+        "domain": data.domain,
+        "team_size": data.team_size,
+        "status": "active",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    # Add to Firestore
+    # Use generic document ID
+    update_time, doc_ref = db.collection("startups").add(new_startup)
+    
+    return StartupListItem(
+        id=doc_ref.id,
+        name=new_startup["name"],
+        domain=new_startup["domain"],
+        goal=new_startup["goal"],
+        status=new_startup["status"],
+        created_at=new_startup["created_at"].isoformat(),
+        updated_at=new_startup["updated_at"].isoformat()
+    )
 
 
 @router.get("/{startup_id}", response_model=StartupListItem)
 async def get_startup(
-    startup_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user)
+    startup_id: str,
+    user: Optional[dict] = Depends(get_current_user)
 ):
     """Get a specific startup by ID."""
-    result = await db.execute(
-        select(Startup).where(Startup.id == startup_id)
-    )
-    startup = result.scalar_one_or_none()
+    db = get_firebase_db()
+    doc_ref = db.collection("startups").document(startup_id)
+    doc = doc_ref.get()
     
-    if not startup:
+    if not doc.exists:
         raise HTTPException(status_code=404, detail="Startup not found")
     
+    data = doc.to_dict()
+    
+    # Optional: Check permission? 
+    # For now allowing public read as per original "list_all"
+    
+    created_at = data.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+        
+    updated_at = data.get("updated_at")
+    if isinstance(updated_at, datetime):
+        updated_at = updated_at.isoformat()
+
     return StartupListItem(
-        id=startup.id,
-        name=startup.name,
-        domain=startup.domain,
-        goal=startup.goal,
-        status=startup.status or "active",
-        created_at=startup.created_at.isoformat(),
-        updated_at=startup.updated_at.isoformat() if startup.updated_at else None
+        id=doc.id,
+        name=data.get("name"),
+        domain=data.get("domain", ""),
+        goal=data.get("goal", ""),
+        status=data.get("status", "active"),
+        created_at=str(created_at),
+        updated_at=str(updated_at)
     )
 
 
 @router.patch("/{startup_id}", response_model=StartupListItem)
 async def update_startup(
-    startup_id: int,
+    startup_id: str,
     data: StartupUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_auth)
+    user: dict = Depends(require_auth)
 ):
     """Update a startup."""
-    result = await db.execute(
-        select(Startup)
-        .where(Startup.id == startup_id)
-        .where(Startup.user_id == user.id)
-    )
-    startup = result.scalar_one_or_none()
+    db = get_firebase_db()
+    doc_ref = db.collection("startups").document(startup_id)
+    doc = doc_ref.get()
     
-    if not startup:
+    if not doc.exists:
         raise HTTPException(status_code=404, detail="Startup not found")
+        
+    startup_data = doc.to_dict()
     
+    # Verify ownership
+    # Handle int vs str uid mismatch if legacy data exists
+    owner_id = str(startup_data.get("user_id"))
+    current_uid = str(user.get("uid"))
+    
+    if owner_id != current_uid:
+         raise HTTPException(status_code=403, detail="Not authorized to update this startup")
+    
+    updates = {"updated_at": datetime.utcnow()}
     if data.name is not None:
-        startup.name = data.name
+        updates["name"] = data.name
     if data.status is not None:
-        startup.status = data.status
+        updates["status"] = data.status
+        
+    doc_ref.update(updates)
     
-    await db.commit()
-    await db.refresh(startup)
+    # Return updated
+    updated_doc = doc_ref.get()
+    updated_data = updated_doc.to_dict()
     
+    created_at = updated_data.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+        
+    updated_at = updated_data.get("updated_at")
+    if isinstance(updated_at, datetime):
+        updated_at = updated_at.isoformat()
+
     return StartupListItem(
-        id=startup.id,
-        name=startup.name,
-        domain=startup.domain,
-        goal=startup.goal,
-        status=startup.status or "active",
-        created_at=startup.created_at.isoformat(),
-        updated_at=startup.updated_at.isoformat() if startup.updated_at else None
+        id=updated_doc.id,
+        name=updated_data.get("name"),
+        domain=updated_data.get("domain", ""),
+        goal=updated_data.get("goal", ""),
+        status=updated_data.get("status", "active"),
+        created_at=str(created_at),
+        updated_at=str(updated_at)
     )
 
 
 @router.delete("/{startup_id}")
 async def delete_startup(
-    startup_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_auth)
+    startup_id: str,
+    user: dict = Depends(require_auth)
 ):
     """Delete (archive) a startup."""
-    result = await db.execute(
-        select(Startup)
-        .where(Startup.id == startup_id)
-        .where(Startup.user_id == user.id)
-    )
-    startup = result.scalar_one_or_none()
+    db = get_firebase_db()
+    doc_ref = db.collection("startups").document(startup_id)
+    doc = doc_ref.get()
     
-    if not startup:
+    if not doc.exists:
         raise HTTPException(status_code=404, detail="Startup not found")
     
-    # Soft delete by setting status to archived
-    startup.status = "archived"
-    await db.commit()
+    startup_data = doc.to_dict()
+    
+    owner_id = str(startup_data.get("user_id"))
+    current_uid = str(user.get("uid"))
+    
+    if owner_id != current_uid:
+         raise HTTPException(status_code=403, detail="Not authorized to delete this startup")
+    
+    doc_ref.update({"status": "archived"})
     
     return {"message": "Startup archived", "id": startup_id}

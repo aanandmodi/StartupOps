@@ -25,3 +25,6 @@ ENV/
 dist/
 build/
 *.egg-info/
+
+# Secrets
+service-account.json

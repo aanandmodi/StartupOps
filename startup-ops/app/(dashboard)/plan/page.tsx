@@ -115,46 +115,24 @@ export default function PlanPage() {
                 <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: "2s" }} />
             </div>
 
-            {/* Premium Header */}
+            {/* Clean Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
+                className="mb-6"
             >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-4">
-                    <div className="flex items-center gap-4">
-                        <motion.div
-                            className={cn(
-                                "p-3 rounded-2xl bg-gradient-to-br shadow-lg",
-                                categoryColors[selectedCategory]
-                            )}
-                            whileHover={{ scale: 1.05, rotate: 5 }}
-                            transition={{ type: "spring", stiffness: 400 }}
-                        >
-                            <ListTodo className="w-7 h-7 text-white" />
-                        </motion.div>
-                        <div>
-                            <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text">
-                                Execution Plan
-                            </h1>
-                            <p className="text-muted-foreground text-sm mt-1 flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                                AI-generated roadmap tailored for your startup
-                            </p>
-                        </div>
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-white/5">
+                        <ListTodo className="w-5 h-5 text-foreground" />
                     </div>
-
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button
-                            variant="outline"
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
-                            className="gap-2 px-5 py-2.5 h-auto bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
-                        >
-                            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            <span className="font-medium">Refresh Plan</span>
-                        </Button>
-                    </motion.div>
+                    <div>
+                        <h1 className="text-xl font-semibold text-foreground">
+                            Execution Plan
+                        </h1>
+                        <p className="text-muted-foreground text-xs">
+                            AI-generated roadmap tailored for your startup
+                        </p>
+                    </div>
                 </div>
             </motion.div>
 
@@ -162,14 +140,14 @@ export default function PlanPage() {
                 {/* Main Content */}
                 <div className="xl:col-span-3 space-y-6">
 
-                    {/* Enhanced Category Tabs */}
+                    {/* Category Tabs - Frosted Lavender */}
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
                         className="relative"
                     >
-                        <div className="glass-card p-2 rounded-2xl flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
                             {categories.map((cat, index) => {
                                 const count = tasks.filter(t => t.category === cat).length;
                                 const isActive = selectedCategory === cat;
@@ -179,45 +157,25 @@ export default function PlanPage() {
                                     <motion.button
                                         key={cat}
                                         onClick={() => setSelectedCategory(cat)}
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: index * 0.02 }}
                                         className={cn(
-                                            "relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 whitespace-nowrap group",
+                                            "flex items-center gap-2 px-3 py-2 rounded-full text-xs font-medium transition-all duration-300 whitespace-nowrap border",
                                             isActive
-                                                ? "text-white shadow-lg"
-                                                : "hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                                                ? "bg-violet-100 dark:bg-[#2a2438] border-violet-200 dark:border-[#3d3450] text-violet-900 dark:text-white shadow-sm dark:shadow-none"
+                                                : "bg-transparent border-gray-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50 dark:hover:bg-white/5"
                                         )}
                                     >
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="activeTab"
-                                                className={cn(
-                                                    "absolute inset-0 rounded-xl bg-gradient-to-r",
-                                                    categoryColors[cat]
-                                                )}
-                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                            />
-                                        )}
-                                        <span className="relative z-10 flex items-center gap-2">
-                                            <Icon className={cn(
-                                                "w-4 h-4 transition-transform",
-                                                isActive && "animate-pulse"
-                                            )} />
-                                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                                            <Badge
-                                                variant="secondary"
-                                                className={cn(
-                                                    "ml-1 h-5 min-w-5 px-1.5 flex items-center justify-center text-xs transition-colors",
-                                                    isActive
-                                                        ? "bg-white/20 text-white border-0"
-                                                        : "bg-white/5 text-muted-foreground group-hover:bg-white/10"
-                                                )}
-                                            >
-                                                {count}
-                                            </Badge>
+                                        <Icon className="w-3.5 h-3.5" />
+                                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                        <span className={cn(
+                                            "text-[10px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full transition-colors",
+                                            isActive
+                                                ? "bg-violet-200 dark:bg-[#4a3d5c] text-violet-700 dark:text-violet-300"
+                                                : "bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-500"
+                                        )}>
+                                            {count}
                                         </span>
                                     </motion.button>
                                 );
@@ -225,34 +183,24 @@ export default function PlanPage() {
                         </div>
                     </motion.div>
 
-                    {/* Enhanced Progress Bar */}
+                    {/* Slim Progress Bar */}
                     {currentTasks.length > 0 && (
                         <motion.div
-                            initial={{ opacity: 0, scaleX: 0.8 }}
-                            animate={{ opacity: 1, scaleX: 1 }}
-                            className="flex items-center gap-4 px-1"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex items-center gap-3 px-1"
                         >
-                            <div className="flex-1 h-2.5 bg-muted/50 rounded-full overflow-hidden backdrop-blur-sm">
+                            <div className="flex-1 h-1 bg-muted/30 rounded-full overflow-hidden">
                                 <motion.div
-                                    className={cn(
-                                        "h-full rounded-full bg-gradient-to-r relative",
-                                        categoryColors[selectedCategory]
-                                    )}
+                                    className="h-full rounded-full bg-violet-500/60"
                                     initial={{ width: 0 }}
                                     animate={{ width: `${progress}%` }}
-                                    transition={{ duration: 0.8, ease: "easeOut" }}
-                                >
-                                    {/* Shimmer effect */}
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                                </motion.div>
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <CategoryIcon className={cn("w-4 h-4", `text-${categoryColors[selectedCategory].split('-')[1]}-400`)} />
-                                <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                                    {completedCount} / {currentTasks.length}
-                                </span>
-                                <span className="text-sm text-muted-foreground">Completed</span>
-                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {completedCount}/{currentTasks.length}
+                            </span>
                         </motion.div>
                     )}
 

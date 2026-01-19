@@ -1,23 +1,16 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-interface User {
-    id: number;
-    email: string;
-    name: string;
-    avatar_url: string | null;
-}
+import { User, onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { auth, googleProvider, githubProvider } from "@/lib/firebase";
 
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
-    login: (provider: "google" | "github", credential: string) => Promise<void>;
-    logout: () => void;
-    refreshToken: () => Promise<boolean>;
+    login: (provider: "google" | "github") => Promise<void>;
+    logout: () => Promise<void>;
+    refreshToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -38,89 +31,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Check for existing token on mount
     useEffect(() => {
-        const checkAuth = async () => {
-            const token = localStorage.getItem("access_token");
-            if (token) {
-                try {
-                    const response = await fetch(`${API_URL}/auth/me`, {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    });
-                    if (response.ok) {
-                        const userData = await response.json();
-                        setUser(userData);
-                    } else {
-                        // Try to refresh
-                        const refreshed = await refreshToken();
-                        if (!refreshed) {
-                            localStorage.removeItem("access_token");
-                            localStorage.removeItem("refresh_token");
-                        }
-                    }
-                } catch (error) {
-                    console.error("Auth check failed:", error);
-                }
-            }
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
             setIsLoading(false);
-        };
-        checkAuth();
-    }, []);
-
-    const login = async (provider: "google" | "github", credential: string) => {
-        const endpoint = provider === "google" ? "/auth/google" : "/auth/github";
-        const body = provider === "google"
-            ? { credential }
-            : { code: credential };
-
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
         });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.detail || "Login failed");
-        }
+        return () => unsubscribe();
+    }, []);
 
-        const data = await response.json();
-
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
-        setUser(data.user);
-    };
-
-    const logout = () => {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        setUser(null);
-    };
-
-    const refreshToken = async (): Promise<boolean> => {
-        const refresh = localStorage.getItem("refresh_token");
-        if (!refresh) return false;
-
+    const login = async (providerName: "google" | "github") => {
         try {
-            const response = await fetch(`${API_URL}/auth/refresh`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refresh_token: refresh }),
-            });
+            const provider = providerName === "google" ? googleProvider : githubProvider;
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Login failed:", error);
+            throw error;
+        }
+    };
 
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem("access_token", data.access_token);
-                localStorage.setItem("refresh_token", data.refresh_token);
-                setUser(data.user);
-                return true;
-            }
+    const logout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Logout failed:", error);
+        }
+    };
+
+    const refreshToken = async (): Promise<string | null> => {
+        if (!auth.currentUser) return null;
+        try {
+            return await auth.currentUser.getIdToken(true);
         } catch (error) {
             console.error("Token refresh failed:", error);
+            return null;
         }
-        return false;
     };
 
     return (
@@ -139,14 +84,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
 }
 
-// Helper to get auth headers
-export function getAuthHeaders(): Record<string, string> {
-    const token = typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
-        : null;
-
-    if (token) {
+// Helper to get auth headers asynchronously
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+    if (!auth.currentUser) return {};
+    try {
+        const token = await auth.currentUser.getIdToken();
         return { Authorization: `Bearer ${token}` };
+    } catch (error) {
+        console.error("Error getting auth token:", error);
+        return {};
     }
-    return {};
 }

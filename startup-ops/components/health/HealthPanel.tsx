@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { usePlanStore } from "@/store/usePlanStore";
 import { cn } from "@/lib/utils";
-import { Activity, TrendingDown, TrendingUp, Target, Zap, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Activity, TrendingDown, CheckCircle2, Clock, AlertCircle, Zap } from "lucide-react";
 
 export function HealthPanel() {
     const { healthScore, driftPercentage, tasks } = usePlanStore();
@@ -16,174 +16,112 @@ export function HealthPanel() {
 
     const healthStatus = healthScore >= 80 ? "healthy" : healthScore >= 50 ? "warning" : "critical";
     const healthConfig = {
-        healthy: {
-            color: "text-emerald-400",
-            gradient: "from-emerald-500 to-green-500",
-            bg: "bg-emerald-500/10",
-            label: "Excellent"
-        },
-        warning: {
-            color: "text-amber-400",
-            gradient: "from-amber-500 to-yellow-500",
-            bg: "bg-amber-500/10",
-            label: "Needs Attention"
-        },
-        critical: {
-            color: "text-red-400",
-            gradient: "from-red-500 to-orange-500",
-            bg: "bg-red-500/10",
-            label: "Critical"
-        },
+        healthy: { color: "text-emerald-400", label: "Excellent" },
+        warning: { color: "text-amber-400", label: "Warning" },
+        critical: { color: "text-muted-foreground", label: "Critical" },
     };
 
     const currentConfig = healthConfig[healthStatus];
 
     return (
         <motion.div
-            className="glass-card p-6 space-y-6 rounded-2xl overflow-hidden relative"
+            className="glass-card p-5 space-y-5 rounded-2xl overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
         >
-            {/* Ambient Glow */}
-            <div className={cn(
-                "absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl opacity-20",
-                healthStatus === "healthy" ? "bg-emerald-500" :
-                    healthStatus === "warning" ? "bg-amber-500" : "bg-red-500"
-            )} />
-
             {/* Header */}
-            <div className="flex items-center gap-3 relative">
-                <motion.div
-                    className={cn("p-2 rounded-xl", currentConfig.bg)}
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 400 }}
-                >
-                    <Activity className={cn("w-5 h-5", currentConfig.color)} />
-                </motion.div>
+            <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                    <Activity className="w-4 h-4 text-primary" />
+                </div>
                 <div>
-                    <h3 className="font-semibold text-foreground">Execution Health</h3>
-                    <p className="text-xs text-muted-foreground">Real-time project status</p>
+                    <h3 className="font-medium text-sm text-foreground">Execution Health</h3>
+                    <p className="text-[10px] text-muted-foreground">Real-time project status</p>
                 </div>
             </div>
 
-            {/* Health Score Circle - Enhanced */}
-            <div className="flex items-center justify-center py-2">
-                <div className="relative w-36 h-36">
-                    {/* Outer glow ring */}
-                    <div className={cn(
-                        "absolute inset-0 rounded-full blur-lg opacity-30",
-                        `bg-gradient-to-br ${currentConfig.gradient}`
-                    )} />
-
-                    <svg className="w-full h-full transform -rotate-90 relative" viewBox="0 0 100 100">
+            {/* Health Score Circle */}
+            <div className="flex items-center justify-center py-4">
+                <div className="relative w-28 h-28">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         {/* Background circle */}
                         <circle
                             cx="50"
                             cy="50"
-                            r="40"
+                            r="42"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="6"
+                            strokeWidth="3"
                             className="text-white/5"
                         />
                         {/* Progress circle */}
                         <motion.circle
                             cx="50"
                             cy="50"
-                            r="40"
+                            r="42"
                             fill="none"
-                            strokeWidth="6"
+                            strokeWidth="3"
                             strokeLinecap="round"
                             className={currentConfig.color}
-                            initial={{ strokeDasharray: "0 251.2", stroke: "currentColor" }}
+                            initial={{ strokeDasharray: "0 264" }}
                             animate={{
-                                strokeDasharray: `${(healthScore / 100) * 251.2} 251.2`,
+                                strokeDasharray: `${(healthScore / 100) * 264} 264`,
                             }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            style={{
-                                filter: `drop-shadow(0 0 8px currentColor)`
-                            }}
+                            transition={{ duration: 1.2, ease: "easeOut" }}
                         />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <motion.span
-                            initial={{ opacity: 0, scale: 0.5 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.5, type: "spring" }}
-                            className={cn("text-4xl font-bold", currentConfig.color)}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.3 }}
+                            className="text-3xl font-semibold text-foreground"
                         >
                             {healthScore}
                         </motion.span>
-                        <span className="text-xs text-muted-foreground font-medium mt-1">{currentConfig.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{currentConfig.label}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Drift Indicator - Enhanced */}
-            <motion.div
-                className={cn(
-                    "flex items-center justify-between p-4 rounded-xl border backdrop-blur-sm",
-                    driftPercentage > 15 ? "bg-red-500/5 border-red-500/20" :
-                        driftPercentage > 5 ? "bg-amber-500/5 border-amber-500/20" :
-                            "bg-emerald-500/5 border-emerald-500/20"
-                )}
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400 }}
-            >
-                <div className="flex items-center gap-3">
-                    <div className={cn(
-                        "p-2 rounded-lg",
-                        driftPercentage > 15 ? "bg-red-500/10" :
-                            driftPercentage > 5 ? "bg-amber-500/10" : "bg-emerald-500/10"
-                    )}>
-                        {driftPercentage > 15 ? (
-                            <TrendingDown className="w-4 h-4 text-red-400" />
-                        ) : driftPercentage > 5 ? (
-                            <TrendingUp className="w-4 h-4 text-amber-400" />
-                        ) : (
-                            <Target className="w-4 h-4 text-emerald-400" />
-                        )}
+            {/* Plan Drift */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-white/5">
+                        <TrendingDown className="w-3.5 h-3.5 text-muted-foreground" />
                     </div>
                     <div>
-                        <span className="text-sm font-medium text-foreground">Plan Drift</span>
-                        <p className="text-xs text-muted-foreground">From original timeline</p>
+                        <span className="text-xs font-medium text-foreground">Plan Drift</span>
+                        <p className="text-[10px] text-muted-foreground">From original timeline</p>
                     </div>
                 </div>
-                <span className={cn(
-                    "text-lg font-bold tabular-nums",
-                    driftPercentage > 15 ? "text-red-400" :
-                        driftPercentage > 5 ? "text-amber-400" : "text-emerald-400"
-                )}>
+                <span className="text-sm font-semibold text-foreground tabular-nums">
                     {driftPercentage}%
                 </span>
-            </motion.div>
+            </div>
 
-            {/* Quick Stats Grid - Enhanced */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-2">
                 {[
-                    { label: "Completed", value: completedTasks, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-                    { label: "In Progress", value: inProgressTasks, icon: Zap, color: "text-blue-400", bg: "bg-blue-500/10" },
-                    { label: "Blocked", value: blockedTasks, icon: AlertCircle, color: "text-red-400", bg: "bg-red-500/10" },
-                    { label: "Done Rate", value: `${completionRate}%`, icon: Clock, color: "text-purple-400", bg: "bg-purple-500/10" },
+                    { label: "Completed", value: completedTasks, icon: CheckCircle2 },
+                    { label: "In Progress", value: inProgressTasks, icon: Zap },
+                    { label: "Blocked", value: blockedTasks, icon: AlertCircle },
+                    { label: "Done Rate", value: `${completionRate}%`, icon: Clock },
                 ].map((stat, index) => (
                     <motion.div
                         key={stat.label}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 * index }}
-                        whileHover={{ scale: 1.03, y: -2 }}
-                        className={cn(
-                            "p-3 rounded-xl backdrop-blur-sm border border-white/5 text-center",
-                            stat.bg
-                        )}
+                        transition={{ delay: 0.05 * index }}
+                        className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center"
                     >
-                        <div className="flex items-center justify-center gap-1.5 mb-1">
-                            <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
-                            <div className={cn("text-xl font-bold tabular-nums", stat.color)}>
+                        <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                            <stat.icon className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-lg font-semibold text-foreground tabular-nums">
                                 {stat.value}
-                            </div>
+                            </span>
                         </div>
-                        <div className="text-xs text-muted-foreground font-medium">{stat.label}</div>
+                        <div className="text-[10px] text-muted-foreground">{stat.label}</div>
                     </motion.div>
                 ))}
             </div>

@@ -17,8 +17,8 @@ export default function ChatPage() {
                 className="mb-6"
             >
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl gradient-primary">
-                        <MessageSquare className="w-6 h-6 text-white" />
+                    <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                        <MessageSquare className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold text-foreground">Agent Chat</h1>

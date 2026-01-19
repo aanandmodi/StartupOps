@@ -27,21 +27,24 @@ interface TaskCardProps {
     categoryColor?: string;
 }
 
-const priorityConfig: Record<Priority, { color: string; bgColor: string; label: string }> = {
+const priorityConfig: Record<Priority, { color: string; bgColor: string; label: string; hoverGlow: string }> = {
     high: {
         color: "text-red-400",
-        bgColor: "bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/30",
-        label: "High"
+        bgColor: "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-white/5",
+        label: "High",
+        hoverGlow: "hover:bg-red-500/10 hover:border-white/10"
     },
     medium: {
         color: "text-amber-400",
-        bgColor: "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/30",
-        label: "Medium"
+        bgColor: "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-white/5",
+        label: "Medium",
+        hoverGlow: "hover:bg-amber-500/10 hover:border-white/10"
     },
     low: {
         color: "text-emerald-400",
-        bgColor: "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-500/30",
-        label: "Low"
+        bgColor: "bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-white/5",
+        label: "Low",
+        hoverGlow: "hover:bg-emerald-500/10 hover:border-white/10"
     },
 };
 
@@ -91,71 +94,68 @@ export function TaskCard({ task, categoryColor = "from-blue-500 to-cyan-500" }: 
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            whileHover={{ y: -4, scale: 1.01 }}
+            exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
             className={cn(
-                "relative group cursor-pointer rounded-2xl transition-all duration-300",
+                "relative cursor-pointer rounded-2xl group",
+                "transition-all duration-200 ease-out",
+                "backdrop-blur-sm",
+                priority.hoverGlow,
                 task.status === "completed" && "opacity-70"
             )}
         >
-            {/* Gradient Border Effect */}
-            <div className={cn(
-                "absolute -inset-[1px] rounded-2xl bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-[1px]",
-                categoryColor
-            )} />
-
             {/* Card Content */}
             <div className={cn(
-                "relative backdrop-blur-xl bg-card/80 dark:bg-white/5 border border-white/10 p-5 rounded-2xl",
-                task.status === "blocked" && "border-red-500/30"
+                "relative bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/8 p-4 rounded-2xl shadow-sm dark:shadow-none",
+                "transition-all duration-300",
+                "group-hover:border-violet-200 dark:group-hover:border-white/12",
+                task.status === "blocked" && "border-red-500/20 dark:border-red-500/20"
             )}>
-                {/* Status Indicator Line */}
+                {/* Status Indicator Dot */}
                 <div className={cn(
-                    "absolute top-0 left-0 w-1 h-full rounded-l-2xl bg-gradient-to-b",
-                    task.status === "completed" ? "from-emerald-500 to-green-500" :
-                        task.status === "in-progress" ? "from-blue-500 to-cyan-500" :
-                            task.status === "blocked" ? "from-red-500 to-orange-500" :
-                                "from-muted-foreground/30 to-muted-foreground/10"
+                    "absolute top-4 left-4 w-2 h-2 rounded-full",
+                    task.status === "completed" ? "bg-emerald-400" :
+                        task.status === "in-progress" ? "bg-blue-400 animate-pulse" :
+                            task.status === "blocked" ? "bg-red-400" :
+                                "bg-muted-foreground/40"
                 )} />
 
                 {/* Header */}
-                <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-start justify-between gap-3 mb-2.5 pl-5">
                     <h3 className={cn(
-                        "font-semibold text-foreground line-clamp-2 leading-snug",
-                        task.status === "completed" && "line-through opacity-70"
+                        "font-medium text-sm text-foreground line-clamp-2 leading-snug",
+                        task.status === "completed" && "line-through opacity-60"
                     )}>
                         {task.title}
                     </h3>
-                    <Badge
+                    <span
                         className={cn(
-                            "shrink-0 text-xs font-medium px-2.5 py-0.5 border rounded-lg",
-                            priority.bgColor,
-                            priority.color
+                            "shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded",
+                            priority.color,
+                            "bg-current/10"
                         )}
                     >
                         {priority.label}
-                    </Badge>
+                    </span>
                 </div>
 
                 {/* Description */}
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-2 mb-3 pl-5 leading-relaxed">
                     {task.description}
                 </p>
 
                 {/* Meta Info Row */}
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between gap-2 pl-5">
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <motion.span
-                                        className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                        whileHover={{ scale: 1.05 }}
+                                    <span
+                                        className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded hover:bg-white/8 transition-colors cursor-default"
                                     >
-                                        <Clock className="w-3.5 h-3.5 text-blue-400" />
-                                        <span className="font-medium">{task.estimatedDays}d</span>
-                                    </motion.span>
+                                        <Clock className="w-3 h-3 text-blue-400/80" />
+                                        <span>{task.estimatedDays}d</span>
+                                    </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" className="text-xs">
                                     <p>Estimated: {task.estimatedDays} days</p>
@@ -167,13 +167,12 @@ export function TaskCard({ task, categoryColor = "from-blue-500 to-cyan-500" }: 
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <motion.span
-                                            className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                            whileHover={{ scale: 1.05 }}
+                                        <span
+                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded hover:bg-white/8 transition-colors cursor-default"
                                         >
-                                            <GitBranch className="w-3.5 h-3.5 text-purple-400" />
-                                            <span className="font-medium">{task.dependencies.length}</span>
-                                        </motion.span>
+                                            <GitBranch className="w-3 h-3 text-purple-400/80" />
+                                            <span>{task.dependencies.length}</span>
+                                        </span>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-xs">
                                         <p>{task.dependencies.length} dependencies</p>
@@ -187,29 +186,26 @@ export function TaskCard({ task, categoryColor = "from-blue-500 to-cyan-500" }: 
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            cycleStatus();
-                                        }}
-                                        className={cn(
-                                            "h-8 px-3 gap-2 rounded-lg transition-all font-medium",
-                                            status.bgColor,
-                                            status.color,
-                                            "hover:opacity-80"
-                                        )}
-                                    >
-                                        <StatusIcon className={cn(
-                                            "w-4 h-4",
-                                            task.status === "in-progress" && "animate-spin"
-                                        )} />
-                                        <span className="text-xs hidden sm:inline">{status.label}</span>
-                                        <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </Button>
-                                </motion.div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        cycleStatus();
+                                    }}
+                                    className={cn(
+                                        "h-6 px-2 gap-1.5 rounded transition-all text-[10px] font-medium",
+                                        status.bgColor,
+                                        status.color,
+                                        "hover:opacity-90"
+                                    )}
+                                >
+                                    <StatusIcon className={cn(
+                                        "w-3 h-3",
+                                        task.status === "in-progress" && "animate-spin"
+                                    )} />
+                                    <span className="hidden sm:inline">{status.label}</span>
+                                </Button>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="text-xs">
                                 <div className="flex items-center gap-1">

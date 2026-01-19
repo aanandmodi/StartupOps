@@ -17,20 +17,20 @@ export interface StartupCreate {
 }
 
 export interface BackendTask {
-    id: number;
-    startup_id: number;
+    id: number | string;
+    startup_id: number | string;
     title: string;
     description: string | null;
     category: string;
     priority: number;
     estimated_days: number;
     status: string;
-    dependencies: number[];
+    dependencies: (number | string)[];
 }
 
 export interface BackendAlert {
-    id: number;
-    startup_id: number;
+    id: number | string;
+    startup_id: number | string;
     severity: string;
     message: string;
     recommended_action: string | null;
@@ -39,8 +39,8 @@ export interface BackendAlert {
 }
 
 export interface BackendKPI {
-    id: number;
-    startup_id: number;
+    id: number | string;
+    startup_id: number | string;
     type: string;
     name: string;
     value: number;
@@ -59,7 +59,7 @@ export interface BackendExecutionHealth {
 }
 
 export interface CreateStartupResponse {
-    startup_id: number;
+    startup_id: number | string;
     status: string;
     message: string;
     agent_summary: Record<string, string>;
@@ -90,7 +90,7 @@ export async function createStartup(data: StartupCreate): Promise<CreateStartupR
     return response.json();
 }
 
-export async function getDashboard(startupId: number): Promise<DashboardResponse> {
+export async function getDashboard(startupId: number | string): Promise<DashboardResponse> {
     const response = await fetch(`${API_URL}/startup/${startupId}/dashboard`);
     if (!response.ok) {
         throw new Error("Failed to fetch dashboard");
@@ -103,7 +103,7 @@ export async function getDashboard(startupId: number): Promise<DashboardResponse
 export async function generateExecutionPlan(goal: Goal): Promise<{
     tasks: Task[];
     alerts: Alert[];
-    startupId: number;
+    startupId: number | string;
     executionHealth: BackendExecutionHealth;
     metrics: {
         marketing: MarketingMetrics;

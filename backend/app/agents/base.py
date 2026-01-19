@@ -80,3 +80,74 @@ class BaseAgent(ABC):
             logger.error(f"[{self.name}] Execution failed: {e}")
             # Fallback for parsing errors or other issues
             return {"error": str(e), "agent": self.name}
+    
+    async def chat_response(self, startup_goal: str, startup_domain: str, user_question: str, conversation_context: str = "") -> str:
+        """
+        Generate a conversational response in natural language with markdown formatting.
+        
+        Args:
+            startup_goal: The startup's main goal
+            startup_domain: The startup's domain/industry
+            user_question: The user's question
+            conversation_context: Previous conversation for context
+            
+        Returns:
+            Human-readable markdown-formatted response
+        """
+        logger.info(f"[{self.name}] Generating chat response")
+        
+        if settings.is_mock_mode:
+            return f"I'm your {self.name.title()} Co-Founder. I'd be happy to help with that question about {startup_domain}. Could you provide more details?"
+        
+        chat_system_prompt = f"""You are the {self.name.title()} Co-Founder of a startup assistant called StartupOps.
+
+You are an expert in your domain and provide helpful, actionable advice to startup founders.
+
+**Your Role ({self.name.title()}):**
+- Product: MVP features, user experience, product roadmap, prioritization
+- Tech: Architecture, tech stack, development approach, scalability
+- Marketing: Growth strategies, user acquisition, branding, content
+- Finance: Budgeting, runway, fundraising, financial planning
+- Advisor: Strategic oversight, risk assessment, overall guidance
+
+**RESPONSE FORMATTING RULES:**
+1. Always respond in **clear, natural English** - NEVER return JSON
+2. Use **markdown formatting** for structure:
+   - Use **bullet points** for lists
+   - Use **numbered lists** for steps or priorities
+   - Use **bold** for emphasis on key terms
+   - Use **tables** when comparing options
+   - Use **headers (##)** to organize long responses
+3. Keep responses **concise but comprehensive**
+4. Be **conversational and friendly** like a real co-founder
+5. Provide **actionable advice** with specific examples when possible
+6. If the question is vague, ask clarifying questions
+
+**Startup Context:**
+- Goal: {startup_goal}
+- Domain: {startup_domain}
+"""
+        
+        user_prompt = f"""Previous conversation:
+{conversation_context if conversation_context else "None"}
+
+User's question: {user_question}
+
+Provide a helpful response as the {self.name.title()} Co-Founder. Remember to use markdown formatting for clarity."""
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", chat_system_prompt),
+            ("user", user_prompt)
+        ])
+        
+        # Use LLM directly without JSON parser for natural language
+        chain = prompt | self.llm
+        
+        try:
+            result = await chain.ainvoke({})
+            return result.content
+                
+        except Exception as e:
+            logger.error(f"[{self.name}] Chat response failed: {e}")
+            return f"I apologize, but I encountered an error: {str(e)}. Please try again."
+

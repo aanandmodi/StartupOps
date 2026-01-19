@@ -35,14 +35,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
     # Startup
-    logger.info("Starting StartupOps Backend V2...")
+    logger.info("Starting StartupOps Backend V2 (Firestore Mode)...")
     logger.info(f"Environment: {settings.environment}")
-    logger.info(f"Database: {'PostgreSQL' if not settings.use_sqlite else 'SQLite'}")
-    logger.info(f"Mock Mode: {settings.is_mock_mode}")
-    
     # Initialize database
-    await init_db()
-    logger.info("Database initialized")
+    # await init_db() # SQL removed
+    # logger.info("Database initialized")
     
     yield
     

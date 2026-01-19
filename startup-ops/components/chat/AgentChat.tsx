@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useGoalStore } from "@/store/useGoalStore";
 import { getAuthHeaders } from "@/components/auth/AuthProvider";
+import { MessageActions } from "./MessageActions";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import {
     Send,
     Loader2,
@@ -13,7 +15,9 @@ import {
     Trash2,
     User,
     Bot,
-    Sparkles
+    Sparkles,
+    Coins,
+    Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,9 +74,10 @@ export function AgentChat({ startupId }: AgentChatProps) {
         setIsLoading(true);
 
         try {
+            const headers = await getAuthHeaders();
             const response = await fetch(
                 `${API_URL}/chat/${startupId}/${selectedAgent.name}/history`,
-                { headers: getAuthHeaders() }
+                { headers }
             );
 
             if (response.ok) {
@@ -101,13 +106,14 @@ export function AgentChat({ startupId }: AgentChatProps) {
         setIsSending(true);
 
         try {
+            const headers = await getAuthHeaders();
             const response = await fetch(
                 `${API_URL}/chat/${startupId}/${selectedAgent.name}`,
                 {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        ...getAuthHeaders(),
+                        ...headers,
                     },
                     body: JSON.stringify({ content: input }),
                 }
@@ -148,11 +154,12 @@ export function AgentChat({ startupId }: AgentChatProps) {
         if (!startupId) return;
 
         try {
+            const headers = await getAuthHeaders();
             await fetch(
                 `${API_URL}/chat/${startupId}/${selectedAgent.name}`,
                 {
                     method: "DELETE",
-                    headers: getAuthHeaders(),
+                    headers,
                 }
             );
             setMessages([]);
@@ -201,13 +208,40 @@ export function AgentChat({ startupId }: AgentChatProps) {
                 ))}
             </div>
 
+            {/* Token Usage Bar */}
+            <div className="mb-4 glass-card rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Token Usage</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">
+                            <span className="text-foreground font-medium">{(messages.length * 150).toLocaleString()}</span> used
+                        </span>
+                        <span className="text-white/20">|</span>
+                        <span className="text-muted-foreground">
+                            <span className="text-emerald-400 font-medium">{(10000 - messages.length * 150).toLocaleString()}</span> remaining
+                        </span>
+                    </div>
+                </div>
+                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                        className="h-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min((messages.length * 150) / 100, 100)}%` }}
+                        transition={{ duration: 0.5 }}
+                    />
+                </div>
+            </div>
+
             {/* Chat Area */}
             <div className="flex-1 glass-card rounded-2xl flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-gradient-to-br",
+                            "w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-gradient-to-br shadow-lg",
                             selectedAgent.color
                         )}>
                             {selectedAgent.icon}
@@ -217,14 +251,25 @@ export function AgentChat({ startupId }: AgentChatProps) {
                             <p className="text-xs text-muted-foreground">{selectedAgent.description}</p>
                         </div>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearChat}
-                        className="hover:bg-red-500/10 hover:text-red-400"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {/* Token/Message count */}
+                        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground">
+                            <Coins className="w-3.5 h-3.5 text-amber-400" />
+                            <span>{messages.length * 150} tokens</span>
+                            <span className="text-white/20">|</span>
+                            <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
+                            <span>{messages.length} msgs</span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={clearChat}
+                            className="hover:bg-red-500/10 hover:text-red-400"
+                            title="Clear chat"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Messages */}
@@ -260,13 +305,13 @@ export function AgentChat({ startupId }: AgentChatProps) {
                         </div>
                     ) : (
                         <AnimatePresence>
-                            {messages.map((message) => (
+                            {messages.map((message, index) => (
                                 <motion.div
                                     key={message.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     className={cn(
-                                        "flex gap-3",
+                                        "flex gap-3 group",
                                         message.role === "user" ? "justify-end" : "justify-start"
                                     )}
                                 >
@@ -278,15 +323,40 @@ export function AgentChat({ startupId }: AgentChatProps) {
                                             {selectedAgent.icon}
                                         </div>
                                     )}
-                                    <div
-                                        className={cn(
-                                            "max-w-[80%] p-3 rounded-2xl text-sm",
-                                            message.role === "user"
-                                                ? "bg-primary text-primary-foreground rounded-br-sm"
-                                                : "bg-white/5 rounded-bl-sm"
+                                    <div className="flex flex-col max-w-[80%]">
+                                        <div
+                                            className={cn(
+                                                "p-3 rounded-2xl text-sm",
+                                                message.role === "user"
+                                                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                                                    : "bg-white/5 rounded-bl-sm border border-white/5"
+                                            )}
+                                        >
+                                            {message.role === "assistant" ? (
+                                                <MarkdownRenderer content={message.content} />
+                                            ) : (
+                                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                            )}
+                                        </div>
+                                        {/* Message Actions for assistant */}
+                                        {message.role === "assistant" && (
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <MessageActions
+                                                    content={message.content}
+                                                    messageId={message.id}
+                                                    onFeedback={(type) => console.log(`Feedback: ${type} for message ${message.id}`)}
+                                                    onRegenerate={index === messages.length - 1 ? () => {
+                                                        // Find the last user message and resend
+                                                        const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+                                                        if (lastUserMsg) {
+                                                            setInput(lastUserMsg.content);
+                                                            // Remove the last assistant message
+                                                            setMessages(prev => prev.slice(0, -1));
+                                                        }
+                                                    } : undefined}
+                                                />
+                                            </div>
                                         )}
-                                    >
-                                        <p className="whitespace-pre-wrap">{message.content}</p>
                                     </div>
                                     {message.role === "user" && (
                                         <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">

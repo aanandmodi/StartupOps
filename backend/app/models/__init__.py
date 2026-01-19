@@ -7,10 +7,12 @@ from app.models.alert import Alert
 from app.models.agent_log import AgentLog
 from app.models.chat import ChatMessage, AgentMemory
 from app.models.execution import GeneratedArtifact, ExecutionLog
+from app.models.token_usage import TokenUsage
 
 __all__ = [
     "User", "Startup", "Task", "KPI", "Alert", "AgentLog", 
-    "ChatMessage", "AgentMemory", "GeneratedArtifact", "ExecutionLog"
+    "ChatMessage", "AgentMemory", "GeneratedArtifact", "ExecutionLog",
+    "TokenUsage"
 ]
 
 
