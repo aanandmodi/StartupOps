@@ -46,7 +46,7 @@ graph TD
         end
     end
     
-    Product <-->|Inference| LLM[LLM API (OpenRouter/Groq)]
+    Product <-->|Inference| LLM["LLM API (OpenRouter/Groq)"]
     Tech <-->|Inference| LLM
     Marketing <-->|Inference| LLM
     Finance <-->|Inference| LLM
