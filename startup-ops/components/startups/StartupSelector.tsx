@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Startup {
-    id: number;
+    id: string;  // Firestore uses string IDs
     name: string | null;
     domain: string;
     goal: string;
@@ -38,25 +38,66 @@ const STATUS_COLORS: Record<string, string> = {
 export function StartupSelector() {
     const [startups, setStartups] = useState<Startup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedMenu, setSelectedMenu] = useState<number | null>(null);
+    const [selectedMenu, setSelectedMenu] = useState<string | null>(null);
 
     const router = useRouter();
     const { setStartupId, reset } = useGoalStore();
 
     useEffect(() => {
-        loadStartups();
+        // Wait for Firebase auth state to be ready before fetching
+        const initAndLoad = async () => {
+            try {
+                const { auth } = await import("@/lib/firebase");
+                const { onAuthStateChanged } = await import("firebase/auth");
+
+                // Wait for auth state to be determined
+                const unsubscribe = onAuthStateChanged(auth, (user) => {
+                    unsubscribe(); // Only need first callback
+                    loadStartups();
+                });
+            } catch (e) {
+                // If Firebase fails, still try to load with localStorage token
+                loadStartups();
+            }
+        };
+        initAndLoad();
     }, []);
 
     const loadStartups = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(`${API_URL}/startups/all`);
+            // Get fresh token from Firebase Auth
+            let token = localStorage.getItem("access_token");
+            try {
+                const { auth } = await import("@/lib/firebase");
+                const user = auth.currentUser;
+                if (user) {
+                    token = await user.getIdToken(true); // Force refresh
+                    localStorage.setItem("access_token", token);
+                }
+            } catch (e) {
+                console.warn("Could not refresh token:", e);
+            }
+
+            console.log("Fetching startups from:", `${API_URL}/startups/`);
+            console.log("Token available:", !!token);
+
+            const response = await fetch(`${API_URL}/startups/`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            console.log("Response status:", response.status);
+
             if (response.ok) {
                 const data = await response.json();
+                console.log("Startups loaded:", data.length);
                 setStartups(data);
+            } else {
+                const errorText = await response.text();
+                console.error("Failed to fetch startups:", response.status, errorText);
             }
         } catch (error) {
-            console.error("Failed to load startups:", error);
+            console.error("Network error loading startups:", error);
         } finally {
             setIsLoading(false);
         }
@@ -72,11 +113,15 @@ export function StartupSelector() {
         router.push("/");
     };
 
-    const archiveStartup = async (id: number) => {
+    const archiveStartup = async (id: string) => {
         try {
+            const token = localStorage.getItem("access_token");
             await fetch(`${API_URL}/startups/${id}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify({ status: "archived" })
             });
             loadStartups();

@@ -3,11 +3,15 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
+import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
+# Remove SQL imports
+# from sqlalchemy.ext.asyncio import AsyncSession
+# from app.models.execution import GeneratedArtifact, ExecutionLog, ArtifactType, ExecutionStatus
 
-from app.models.execution import GeneratedArtifact, ExecutionLog, ArtifactType, ExecutionStatus
+from app.models.execution import ArtifactType, ExecutionStatus
 from app.agents import ProductAgent, TechAgent, MarketingAgent, FinanceAgent, AdvisorAgent
+from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ExecutionResult:
     """Result of an agent execution."""
     success: bool
-    artifact_id: Optional[int] = None
+    artifact_id: Optional[str] = None
     artifact_type: Optional[str] = None
     content: Optional[str] = None
     error: Optional[str] = None
@@ -34,8 +38,9 @@ class AgentExecutor:
     - Advisor: Meeting agendas, decision frameworks, risk assessments
     """
     
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(self, db: Any):
+        """Initialize with Firestore client."""
+        self.db = db # Firestore Client
         self.agents = {
             "product": ProductAgent(),
             "tech": TechAgent(),
@@ -46,7 +51,7 @@ class AgentExecutor:
     
     async def execute(
         self,
-        startup_id: int,
+        startup_id: str,
         agent_name: str,
         action_type: str,
         context: Dict[str, Any]
@@ -56,56 +61,79 @@ class AgentExecutor:
         if agent_name not in self.agents:
             return ExecutionResult(success=False, error=f"Unknown agent: {agent_name}")
         
-        # Create execution log
-        log = ExecutionLog(
-            startup_id=startup_id,
-            agent_name=agent_name,
-            action_type=action_type,
-            status=ExecutionStatus.RUNNING,
-            input_data=context
-        )
-        self.db.add(log)
-        await self.db.flush()
+        # Create execution log in Firestore
+        # Organization: startups/{startup_id}/execution_logs
+        
+        logs_ref = self.db.collection("startups").document(startup_id).collection("execution_logs")
+        
+        log_data = {
+            "startup_id": startup_id,
+            "agent_name": agent_name,
+            "action_type": action_type,
+            "status": ExecutionStatus.RUNNING,
+            "input_data": context,
+            "started_at": datetime.utcnow()
+        }
+        
+        # Add log doc
+        log_ptr = logs_ref.document()
+        log_ptr.set(log_data)
         
         try:
             # Route to specific generator
             result = await self._route_execution(agent_name, action_type, context)
             
             if result.success and result.content:
-                # Save artifact
-                artifact = GeneratedArtifact(
-                    startup_id=startup_id,
-                    agent_name=agent_name,
-                    artifact_type=result.artifact_type or action_type,
-                    title=context.get("title", f"{action_type.replace('_', ' ').title()}"),
-                    description=context.get("description"),
-                    content=result.content,
-                    language=context.get("language"),
-                    file_extension=context.get("file_extension"),
-                    metadata=context.get("metadata")
-                )
-                self.db.add(artifact)
-                await self.db.flush()
-                result.artifact_id = artifact.id
+                # Save artifact to Firestore
+                # startups/{startup_id}/artifacts
+                artifacts_ref = self.db.collection("startups").document(startup_id).collection("artifacts")
+                
+                artifact_data = {
+                    "startup_id": startup_id,
+                    "agent_name": agent_name,
+                    "artifact_type": result.artifact_type or action_type,
+                    "title": context.get("title", f"{action_type.replace('_', ' ').title()}"),
+                    "description": context.get("description"),
+                    "content": result.content,
+                    "language": context.get("language"),
+                    "file_extension": context.get("file_extension"),
+                    "metadata": context.get("metadata"),
+                    "created_at": datetime.utcnow()
+                }
+                
+                artifact_ptr = artifacts_ref.document()
+                artifact_ptr.set(artifact_data)
+                
+                result.artifact_id = artifact_ptr.id
                 
                 # Update log
-                log.status = ExecutionStatus.SUCCESS
-                log.output_data = {"artifact_id": artifact.id}
-                log.completed_at = datetime.utcnow()
+                log_update = {
+                    "status": ExecutionStatus.SUCCESS,
+                    "output_data": {"artifact_id": artifact_ptr.id},
+                    "completed_at": datetime.utcnow()
+                }
+                log_ptr.update(log_update)
+                
             else:
-                log.status = ExecutionStatus.FAILED
-                log.error_message = result.error
-                log.completed_at = datetime.utcnow()
+                log_update = {
+                    "status": ExecutionStatus.FAILED,
+                    "error_message": result.error,
+                    "completed_at": datetime.utcnow()
+                }
+                log_ptr.update(log_update)
             
-            await self.db.commit()
             return result
             
         except Exception as e:
             logger.error(f"Execution failed: {e}")
-            log.status = ExecutionStatus.FAILED
-            log.error_message = str(e)
-            log.completed_at = datetime.utcnow()
-            await self.db.commit()
+            
+            log_update = {
+                "status": ExecutionStatus.FAILED,
+                "error_message": str(e),
+                "completed_at": datetime.utcnow()
+            }
+            log_ptr.update(log_update)
+            
             return ExecutionResult(success=False, error=str(e))
     
     async def _route_execution(
@@ -115,6 +143,9 @@ class AgentExecutor:
         context: Dict[str, Any]
     ) -> ExecutionResult:
         """Route execution to the appropriate generator."""
+        # Use existing logic for routing and generation
+        # NOTE: Using previous map, simplified for brevity in this tool call block
+        # The generators themselves just return strings/dicts so they are safe.
         
         generators = {
             "product": {
@@ -159,6 +190,22 @@ class AgentExecutor:
             )
         
         return await generator(context)
+        
+    # [Generators below remain unchanged - reusing original methods as they are pure logic]
+    # To avoid repeating 1000 lines, I will invoke multi_replace or rely on the fact that I'm only modifying init and execute.
+    # Ah, replace_file_content replaces block. I need to be careful to KEEP the generators.
+    # The Tool Description says "This must be a complete drop-in replacement". 
+    # I should use StartLine/EndLine to only replace the top class definition and methods, keeping generators.
+    
+    # Wait, I can't see the line numbers easily for where generators start.
+    # Lines 1-162 cover imports, init, execute, route_execution.
+    # Line 163 is "===== PRODUCT AGENT GENERATORS =====".
+    # So I will replace lines 1-163.
+    
+    # Let's adjust the tool call to use StartLine/EndLine.
+    pass
+
+    # ... generators ...
     
     # ===== PRODUCT AGENT GENERATORS =====
     

@@ -99,22 +99,32 @@ export function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                 return;
             }
 
-            const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
-            const body = mode === "login"
-                ? { email, password }
-                : { name, email, password };
+            // Use Firebase Auth for email/password login
+            const { auth } = await import("@/lib/firebase");
+            const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = await import("firebase/auth");
 
-            const response = await fetch(`${API_URL}${endpoint}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
+            let userCredential;
+            if (mode === "login") {
+                userCredential = await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // Update display name for new users
+                if (name && userCredential.user) {
+                    await updateProfile(userCredential.user, { displayName: name });
+                }
+            }
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || "Authentication failed");
+            const user = userCredential.user;
+            const token = await user.getIdToken();
 
-            localStorage.setItem("access_token", data.access_token);
-            localStorage.setItem("user", JSON.stringify(data.user));
+            localStorage.setItem("access_token", token);
+            localStorage.setItem("user", JSON.stringify({
+                id: user.uid,
+                email: user.email,
+                name: user.displayName || name,
+                avatar_url: user.photoURL,
+                provider: "email"
+            }));
 
             const pendingGoal = sessionStorage.getItem("pendingStartupGoal");
             if (pendingGoal) {
@@ -124,8 +134,8 @@ export function AuthPage({ defaultMode = "login" }: AuthPageProps) {
             }
 
             try {
-                const startupsResponse = await fetch(`${API_URL}/startups/all`, {
-                    headers: { "Authorization": `Bearer ${data.access_token}` }
+                const startupsResponse = await fetch(`${API_URL}/startups/`, {
+                    headers: { "Authorization": `Bearer ${token}` }
                 });
                 if (startupsResponse.ok) {
                     const startups = await startupsResponse.json();
@@ -137,8 +147,22 @@ export function AuthPage({ defaultMode = "login" }: AuthPageProps) {
             } catch { }
 
             router.push("/plan");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred");
+        } catch (err: any) {
+            // Map Firebase error codes to user-friendly messages
+            const errorCode = err?.code;
+            let message = "An error occurred";
+            if (errorCode === "auth/user-not-found" || errorCode === "auth/wrong-password") {
+                message = "Invalid email or password";
+            } else if (errorCode === "auth/email-already-in-use") {
+                message = "Email already in use. Try logging in instead.";
+            } else if (errorCode === "auth/weak-password") {
+                message = "Password should be at least 6 characters";
+            } else if (errorCode === "auth/invalid-email") {
+                message = "Invalid email address";
+            } else if (err instanceof Error) {
+                message = err.message;
+            }
+            setError(message);
         } finally {
             setIsLoading(false);
         }

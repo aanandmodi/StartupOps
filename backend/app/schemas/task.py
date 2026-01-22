@@ -11,7 +11,7 @@ class TaskCreate(BaseModel):
     category: TaskCategory
     priority: int = Field(1, ge=1, le=5)
     estimated_days: float = Field(1, ge=0.5, le=365)
-    dependencies: list[int] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)  # Firestore uses string IDs
 
 
 class TaskUpdate(BaseModel):
@@ -23,15 +23,15 @@ class TaskUpdate(BaseModel):
 
 class TaskResponse(BaseModel):
     """Schema for task response."""
-    id: int
-    startup_id: int
+    id: str  # Firestore uses string document IDs
+    startup_id: str
     title: str
     description: Optional[str]
     category: TaskCategory
     priority: int
     estimated_days: float
     status: TaskStatus
-    dependencies: list[int]
+    dependencies: list[str]
     
     class Config:
         from_attributes = True

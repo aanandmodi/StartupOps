@@ -1,15 +1,14 @@
 """Execution API routes for generating artifacts."""
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
+from datetime import datetime
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud import firestore
 
-from app.database import get_db
-from app.models.user import User
-from app.models.execution import GeneratedArtifact, ExecutionLog
+from app.firebase_client import get_firebase_db
 from app.routers.auth import require_auth, get_current_user
 from app.services.executor import AgentExecutor
 
@@ -28,7 +27,7 @@ class ExecuteRequest(BaseModel):
 
 class ArtifactResponse(BaseModel):
     """Response containing a generated artifact."""
-    id: int
+    id: str
     agent_name: str
     artifact_type: str
     title: str
@@ -44,7 +43,7 @@ class ArtifactResponse(BaseModel):
 class ExecuteResponse(BaseModel):
     """Response from an execution request."""
     success: bool
-    artifact_id: Optional[int] = None
+    artifact_id: Optional[str] = None
     artifact_type: Optional[str] = None
     content: Optional[str] = None
     error: Optional[str] = None
@@ -108,10 +107,9 @@ async def get_agent_actions(agent_name: str):
 
 @router.post("/{startup_id}", response_model=ExecuteResponse)
 async def execute_action(
-    startup_id: int,
+    startup_id: str,
     request: ExecuteRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_auth)
+    user: dict = Depends(require_auth)
 ):
     """Execute an agent action and generate an artifact."""
     
@@ -126,8 +124,28 @@ async def execute_action(
             detail=f"Invalid action '{request.action_type}' for agent '{request.agent_name}'"
         )
     
+    # Verify ownership
+    db = get_firebase_db()
+    startup_ref = db.collection("startups").document(startup_id)
+    startup_doc = startup_ref.get()
+    
+    if not startup_doc.exists:
+        raise HTTPException(status_code=404, detail="Startup not found")
+        
+    startup_data = startup_doc.to_dict()
+    if str(startup_data.get("user_id")) != str(user.get("uid")):
+         raise HTTPException(status_code=403, detail="Not authorized")
+    
     # Execute
+    # Assuming AgentExecutor is updated for Firestore or we pass db
     executor = AgentExecutor(db)
+    # Be careful: AgentExecutor might still be SQL-based in its definition!
+    # We might need to update that file too.
+    
+    # For now, let's assume we need to update AgentExecutor logic or mock it here if it fails
+    # But let's assume it was updated or needs update.
+    # To be safe, checking AgentExecutor separately.
+    
     result = await executor.execute(
         startup_id=startup_id,
         agent_name=request.agent_name,
@@ -137,7 +155,7 @@ async def execute_action(
     
     return ExecuteResponse(
         success=result.success,
-        artifact_id=result.artifact_id,
+        artifact_id=str(result.artifact_id) if result.artifact_id else None,
         artifact_type=result.artifact_type,
         content=result.content,
         error=result.error
@@ -146,93 +164,104 @@ async def execute_action(
 
 @router.get("/{startup_id}/artifacts", response_model=List[ArtifactResponse])
 async def list_artifacts(
-    startup_id: int,
+    startup_id: str,
     agent_name: Optional[str] = Query(None),
     artifact_type: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user)
+    user: Optional[dict] = Depends(get_current_user)
 ):
     """List generated artifacts for a startup."""
-    query = select(GeneratedArtifact).where(
-        GeneratedArtifact.startup_id == startup_id
-    )
+    db = get_firebase_db()
+    
+    # Note: Artifacts should likely be a subcollection of startups or root collection 
+    # filtered by startup_id. Let's use root 'artifacts' for easier querying or subcollection?
+    # Subcollection is better for strict hierarchy: startups/{id}/artifacts
+    artifacts_ref = db.collection("startups").document(startup_id).collection("artifacts")
+    
+    query = artifacts_ref.order_by("created_at", direction=firestore.Query.DESCENDING)
     
     if agent_name:
-        query = query.where(GeneratedArtifact.agent_name == agent_name)
+        query = query.where(filter=firestore.FieldFilter("agent_name", "==", agent_name))
     
     if artifact_type:
-        query = query.where(GeneratedArtifact.artifact_type == artifact_type)
+        query = query.where(filter=firestore.FieldFilter("artifact_type", "==", artifact_type))
+        
+    query = query.limit(limit)
     
-    query = query.order_by(desc(GeneratedArtifact.created_at)).limit(limit)
+    docs = query.stream()
+    results = []
     
-    result = await db.execute(query)
-    artifacts = result.scalars().all()
+    for doc in docs:
+        data = doc.to_dict()
+        created_at = data.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+            
+        results.append(ArtifactResponse(
+            id=doc.id,
+            agent_name=data.get("agent_name"),
+            artifact_type=data.get("artifact_type"),
+            title=data.get("title", "Untitled"),
+            description=data.get("description"),
+            content=data.get("content", ""),
+            language=data.get("language"),
+            created_at=str(created_at)
+        ))
     
-    return [
-        ArtifactResponse(
-            id=a.id,
-            agent_name=a.agent_name,
-            artifact_type=a.artifact_type,
-            title=a.title,
-            description=a.description,
-            content=a.content,
-            language=a.language,
-            created_at=a.created_at.isoformat()
-        )
-        for a in artifacts
-    ]
+    return results
 
 
 @router.get("/{startup_id}/artifacts/{artifact_id}", response_model=ArtifactResponse)
 async def get_artifact(
-    startup_id: int,
-    artifact_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user)
+    startup_id: str,
+    artifact_id: str,
+    user: Optional[dict] = Depends(get_current_user)
 ):
     """Get a specific artifact by ID."""
-    result = await db.execute(
-        select(GeneratedArtifact)
-        .where(GeneratedArtifact.id == artifact_id)
-        .where(GeneratedArtifact.startup_id == startup_id)
-    )
-    artifact = result.scalar_one_or_none()
+    db = get_firebase_db()
     
-    if not artifact:
+    doc_ref = db.collection("startups").document(startup_id).collection("artifacts").document(artifact_id)
+    doc = doc_ref.get()
+    
+    if not doc.exists:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
+    data = doc.to_dict()
+    created_at = data.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+        
     return ArtifactResponse(
-        id=artifact.id,
-        agent_name=artifact.agent_name,
-        artifact_type=artifact.artifact_type,
-        title=artifact.title,
-        description=artifact.description,
-        content=artifact.content,
-        language=artifact.language,
-        created_at=artifact.created_at.isoformat()
+        id=doc.id,
+        agent_name=data.get("agent_name"),
+        artifact_type=data.get("artifact_type"),
+        title=data.get("title", "Untitled"),
+        description=data.get("description"),
+        content=data.get("content", ""),
+        language=data.get("language"),
+        created_at=str(created_at)
     )
 
 
 @router.delete("/{startup_id}/artifacts/{artifact_id}")
 async def delete_artifact(
-    startup_id: int,
-    artifact_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_auth)
+    startup_id: str,
+    artifact_id: str,
+    user: dict = Depends(require_auth)
 ):
     """Delete an artifact."""
-    result = await db.execute(
-        select(GeneratedArtifact)
-        .where(GeneratedArtifact.id == artifact_id)
-        .where(GeneratedArtifact.startup_id == startup_id)
-    )
-    artifact = result.scalar_one_or_none()
+    db = get_firebase_db()
+    startup_ref = db.collection("startups").document(startup_id)
     
-    if not artifact:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-    
-    await db.delete(artifact)
-    await db.commit()
+    # Ownership check
+    startup_doc = startup_ref.get()
+    if not startup_doc.exists:
+        raise HTTPException(status_code=404, detail="Startup not found")
+        
+    if str(startup_doc.get("user_id")) != str(user.get("uid")):
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    doc_ref = startup_ref.collection("artifacts").document(artifact_id)
+    doc_ref.delete()
     
     return {"message": "Artifact deleted"}

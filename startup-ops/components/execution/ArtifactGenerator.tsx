@@ -97,9 +97,10 @@ export function ArtifactGenerator({ startupId }: ArtifactGeneratorProps) {
     const loadRecentArtifacts = async () => {
         if (!startupId) return;
         try {
+            const headers = await getAuthHeaders();
             const response = await fetch(
                 `${API_URL}/execute/${startupId}/artifacts?limit=5`,
-                { headers: getAuthHeaders() }
+                { headers }
             );
             if (response.ok) {
                 const artifacts = await response.json();
@@ -117,11 +118,12 @@ export function ArtifactGenerator({ startupId }: ArtifactGeneratorProps) {
         setGeneratedArtifact(null);
 
         try {
+            const headers = await getAuthHeaders();
             const response = await fetch(`${API_URL}/execute/${startupId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    ...getAuthHeaders(),
+                    ...headers,
                 },
                 body: JSON.stringify({
                     agent_name: selectedAgent,
@@ -143,6 +145,8 @@ export function ArtifactGenerator({ startupId }: ArtifactGeneratorProps) {
                     });
                     loadRecentArtifacts();
                 }
+            } else {
+                console.error("Failed response:", response.status, response.statusText);
             }
         } catch (error) {
             console.error("Failed to generate artifact:", error);

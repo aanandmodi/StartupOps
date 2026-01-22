@@ -13,7 +13,7 @@ class StartupCreate(BaseModel):
 
 class StartupResponse(BaseModel):
     """Schema for startup response."""
-    id: int
+    id: str  # Firestore uses string document IDs
     goal: str
     domain: str
     team_size: int

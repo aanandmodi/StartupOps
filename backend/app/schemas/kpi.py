@@ -7,8 +7,8 @@ from app.models.kpi import KPIType
 
 class KPIResponse(BaseModel):
     """Schema for KPI response."""
-    id: int
-    startup_id: int
+    id: str  # Firestore uses string document IDs
+    startup_id: str
     type: KPIType
     name: str
     value: float

@@ -35,47 +35,82 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }, [pathname]);
 
     const checkAuth = async () => {
-        const accessToken = localStorage.getItem("access_token");
-        const storedUser = localStorage.getItem("user");
+        try {
+            // First, check Firebase auth state
+            const { auth } = await import("@/lib/firebase");
+            const { onAuthStateChanged } = await import("firebase/auth");
 
-        // If we have a stored user and token, verify it's still valid
-        if (accessToken && storedUser) {
-            try {
-                const response = await fetch(`${API_URL}/auth/me`, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
+            // Wait for Firebase to determine auth state
+            const firebaseUser = await new Promise<any>((resolve) => {
+                const unsubscribe = onAuthStateChanged(auth, (user) => {
+                    unsubscribe();
+                    resolve(user);
                 });
+            });
 
-                if (response.ok) {
-                    const userData = await response.json();
-                    setUser(userData);
-                    localStorage.setItem("user", JSON.stringify(userData));
+            if (firebaseUser) {
+                // Get fresh token from Firebase
+                const token = await firebaseUser.getIdToken(true);
+                localStorage.setItem("access_token", token);
 
-                    // If on auth routes (login), redirect to dashboard
-                    if (AUTH_ROUTES.includes(pathname)) {
-                        router.push("/plan");
-                        return;
-                    }
-                } else {
-                    // Token expired, try to refresh
-                    const refreshed = await tryRefreshToken();
-                    if (!refreshed) {
+                // Verify with backend
+                try {
+                    const response = await fetch(`${API_URL}/auth/me`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+
+                    if (response.ok) {
+                        const userData = await response.json();
+                        setUser(userData);
+                        localStorage.setItem("user", JSON.stringify(userData));
+
+                        // If on auth routes (login), redirect to dashboard
+                        if (AUTH_ROUTES.includes(pathname)) {
+                            router.push("/plan");
+                            return;
+                        }
+                    } else {
+                        // Backend rejected token, clear and redirect
                         clearAuth();
                         if (!PUBLIC_ROUTES.includes(pathname)) {
                             router.push("/login");
                             return;
                         }
                     }
+                } catch (error) {
+                    console.error("Backend auth check failed:", error);
+                    // Use Firebase user data as fallback
+                    setUser({
+                        id: firebaseUser.uid,
+                        email: firebaseUser.email,
+                        name: firebaseUser.displayName
+                    } as any);
                 }
-            } catch (error) {
-                console.error("Auth check failed:", error);
-                // On network error, still allow access to cached user for offline support
-                if (storedUser) {
-                    setUser(JSON.parse(storedUser));
+            } else {
+                // No Firebase user - check localStorage for demo mode
+                const demoMode = localStorage.getItem("demo_mode");
+                if (demoMode === "true") {
+                    // Allow demo mode
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Clear any stale tokens
+                clearAuth();
+
+                // Redirect to login if on protected route
+                if (!PUBLIC_ROUTES.includes(pathname)) {
+                    router.push("/login");
+                    return;
                 }
             }
-        } else {
-            // No token - redirect to login if on protected route
-            if (!PUBLIC_ROUTES.includes(pathname)) {
+        } catch (error) {
+            console.error("Auth initialization failed:", error);
+            // Fallback to localStorage check
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            } else if (!PUBLIC_ROUTES.includes(pathname)) {
                 router.push("/login");
                 return;
             }

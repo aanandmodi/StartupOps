@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from google.cloud import firestore
 
 from app.firebase_client import verify_token, get_firebase_db
 from app.config import get_settings
@@ -43,6 +44,40 @@ async def get_current_user(
         return None
     
     # Return the user data from token (uid, email, etc.)
+    # Return the user data from token (uid, email, etc.)
+    # Ensure user document exists in Firestore
+    try:
+        uid = decoded.get("uid")
+        db = get_firebase_db()
+        user_ref = db.collection("users").document(uid)
+        
+        # We can optimize this by only writing if we suspect it's new, 
+        # but a get() is cheap. 
+        # Or simpler: merge=True set on every auth is safe but maybe too many writes?
+        # Let's do a check first.
+        doc = user_ref.get()
+        if not doc.exists:
+            logger.info(f"Creating new user document for {uid}")
+            user_data = {
+                "uid": uid,
+                "email": decoded.get("email"),
+                "name": decoded.get("name") or decoded.get("email", "").split("@")[0],
+                "picture": decoded.get("picture"),
+                "email_verified": decoded.get("email_verified", False),
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "last_login": firestore.SERVER_TIMESTAMP
+            }
+            user_ref.set(user_data)
+        else:
+            # Update last login
+            user_ref.update({"last_login": firestore.SERVER_TIMESTAMP})
+            
+    except Exception as e:
+        logger.error(f"Failed to ensure user document: {e}")
+        # Build robustness: don't fail auth just because firestore write failed?
+        # But user wants "whole personal unique id". 
+        # Let's log and proceed, authentication is valid.
+        
     return decoded
 
 

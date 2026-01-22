@@ -9,11 +9,11 @@ export interface Goal {
 
 interface GoalState {
     goal: Goal | null;
-    startupId: number | null; // Store the startup ID from backend
+    startupId: string | number | null; // Firestore uses string IDs, legacy uses numbers
     isGenerating: boolean;
     hasGeneratedPlan: boolean;
     setGoal: (goal: Goal) => void;
-    setStartupId: (id: number) => void;
+    setStartupId: (id: string | number) => void;
     setIsGenerating: (isGenerating: boolean) => void;
     setHasGeneratedPlan: (hasGeneratedPlan: boolean) => void;
     reset: () => void;

@@ -1,12 +1,13 @@
 """Startup API routes using Firestore (Legacy Singular Router)."""
 import logging
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from google.cloud import firestore
 
 from app.firebase_client import get_firebase_db
+from app.routers.auth import get_current_user, require_auth
 from app.schemas import StartupCreate, StartupResponse, StartupDashboard
 from app.schemas.startup import ExecutionHealth
 from app.schemas.task import TaskResponse
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/startup", tags=["Startup"])
 @router.post("/create", response_model=dict)
 async def create_startup(
     startup_data: StartupCreate,
+    user: dict = Depends(require_auth)
 ):
     """
     Create a new startup and trigger full agent orchestration.
@@ -33,6 +35,7 @@ async def create_startup(
     startup_ref = db.collection("startups").document() # Auto ID
     
     new_startup = {
+        "user_id": user["uid"],
         "goal": startup_data.goal,
         "domain": startup_data.domain,
         "team_size": startup_data.team_size,
@@ -41,7 +44,7 @@ async def create_startup(
     }
     startup_ref.set(new_startup)
     
-    logger.info(f"Startup created with ID: {startup_ref.id}")
+    logger.info(f"Startup created with ID: {startup_ref.id} for user {user['uid']}")
     
     # Run agent orchestration synchronously (or could be background)
     orchestrator = AgentOrchestrator(db)
@@ -76,6 +79,7 @@ async def create_startup(
 @router.get("/{startup_id}/dashboard", response_model=StartupDashboard)
 async def get_dashboard(
     startup_id: str,
+    user: dict = Depends(require_auth)
 ):
     """
     Get full dashboard data for a startup.
@@ -89,6 +93,14 @@ async def get_dashboard(
         raise HTTPException(status_code=404, detail="Startup not found")
     
     startup_data = doc.to_dict()
+    
+    # Verify ownership
+    owner_id = str(startup_data.get("user_id"))
+    current_uid = str(user.get("uid"))
+    
+    if owner_id != current_uid:
+        raise HTTPException(status_code=403, detail="Not authorized to access this dashboard")
+        
     # Add ID manually as it's not in the data
     startup_data["id"] = doc.id
     

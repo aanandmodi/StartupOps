@@ -58,3 +58,7 @@ yarn-error.log*
 *.tsbuildinfo
 coverage/
 .vercel
+
+# Logs
+*.log
+firebase-debug.log

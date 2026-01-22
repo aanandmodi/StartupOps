@@ -75,10 +75,41 @@ export interface DashboardResponse {
 
 // --- API Functions ---
 
+// Helper to get fresh auth headers with automatic token refresh
+async function getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (typeof window !== "undefined") {
+        try {
+            // Try to get fresh token from Firebase Auth (auto-refreshes if expired)
+            const { auth } = await import("@/lib/firebase");
+            const user = auth.currentUser;
+            if (user) {
+                const token = await user.getIdToken(true); // Force refresh
+                headers["Authorization"] = `Bearer ${token}`;
+                // Also update localStorage with fresh token
+                localStorage.setItem("access_token", token);
+            } else {
+                // Fallback to stored token if no current user
+                const storedToken = localStorage.getItem("access_token");
+                if (storedToken) {
+                    headers["Authorization"] = `Bearer ${storedToken}`;
+                }
+            }
+        } catch (error) {
+            console.warn("Failed to get fresh token, using stored token:", error);
+            const storedToken = localStorage.getItem("access_token");
+            if (storedToken) {
+                headers["Authorization"] = `Bearer ${storedToken}`;
+            }
+        }
+    }
+    return headers;
+}
+
 export async function createStartup(data: StartupCreate): Promise<CreateStartupResponse> {
     const response = await fetch(`${API_URL}/startup/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
     });
 
@@ -91,7 +122,9 @@ export async function createStartup(data: StartupCreate): Promise<CreateStartupR
 }
 
 export async function getDashboard(startupId: number | string): Promise<DashboardResponse> {
-    const response = await fetch(`${API_URL}/startup/${startupId}/dashboard`);
+    const response = await fetch(`${API_URL}/startup/${startupId}/dashboard`, {
+        headers: await getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error("Failed to fetch dashboard");
     }
