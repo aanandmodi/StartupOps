@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
+from app.routers.subscription import router as subscription_router
 from app.routers import (
     startup_router, 
     task_router, 
@@ -15,8 +16,6 @@ from app.routers import (
     streaming_router,
     auth_router,
     chat_router,
-    integrations_router,
-    execution_router,
     startups_router
 )
 
@@ -65,12 +64,6 @@ app = FastAPI(
     ### 💬 Agent Chat
     Chat directly with any agent like talking to a real co-founder.
     
-    ### ⚡ Auto-Execution
-    Agents generate real artifacts: code, docs, templates, and more.
-    
-    ### 🔐 Authentication
-    OAuth2 support for Google and GitHub.
-    
     ### 📊 Export & Docs
     Export PRD, budget, architecture docs, and more.
     """,
@@ -96,8 +89,7 @@ app.include_router(alert_router)
 app.include_router(export_router)
 app.include_router(streaming_router)
 app.include_router(chat_router)
-app.include_router(integrations_router)
-app.include_router(execution_router)
+app.include_router(subscription_router)
 
 
 
@@ -109,7 +101,7 @@ async def root():
         "version": "2.0.0",
         "description": "Multi-Agent AI Co-Founder Platform with Chat",
         "mock_mode": settings.is_mock_mode,
-        "database": "PostgreSQL" if not settings.use_sqlite else "SQLite",
+        "database": "Firestore",
         "features": [
             "OAuth Authentication (Google, GitHub)",
             "Multi-Startup Management",
@@ -140,6 +132,6 @@ async def health_check():
         "status": "healthy",
         "version": "2.0.0",
         "mock_mode": settings.is_mock_mode,
-        "database": "PostgreSQL" if not settings.use_sqlite else "SQLite",
+        "database": "Firestore",
     }
 

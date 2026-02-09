@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   keywords: ["startup", "AI", "execution plan", "founder", "dashboard", "KPI"],
 };
 
+import { AuthProvider } from "@/components/auth/AuthProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,8 +33,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider defaultTheme="dark">
-          <Preloader />
-          {children}
+          <AuthProvider>
+            <Preloader />
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

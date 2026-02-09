@@ -66,7 +66,38 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
                         // If on auth routes (login), redirect to dashboard
                         if (AUTH_ROUTES.includes(pathname)) {
-                            router.push("/plan");
+                            // Check for startups before redirecting
+                            try {
+                                const startupRes = await fetch(`${API_URL}/startups/`, {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                });
+                                if (startupRes.ok) {
+                                    const startups = await startupRes.json();
+                                    if (startups && startups.length > 0) {
+                                        const latest = startups.sort((a: any, b: any) =>
+                                            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                                        )[0];
+                                        // Redirect to existing flow (currently /plan seems to be the main dashboard view, 
+                                        // or we should store the startup ID in store first if needed)
+                                        // The store 'useGoalStore' or local storage might need the ID?
+                                        // Looking at page.tsx, it sets setStartupId.
+                                        // Let's rely on /startups redirecting mostly or generic /plan if that's the "dashboard".
+                                        // But user asked for "latest startup dashboard".
+                                        // Assuming /plan reads from some state or defaults.
+                                        // Let's stick to /plan for now but ensure we default correctly, 
+                                        // OR if we have a specific route like /startup/[id]/dashboard used elsewhere? 
+                                        // Sidebar uses /plan. Let's assume /plan is the dashboard.
+                                        router.push("/plan");
+                                    } else {
+                                        router.push("/");
+                                    }
+                                } else {
+                                    router.push("/");
+                                }
+                            } catch (e) {
+                                console.error("Failed to fetch startups", e);
+                                router.push("/");
+                            }
                             return;
                         }
                     } else {

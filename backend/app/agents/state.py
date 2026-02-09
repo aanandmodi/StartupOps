@@ -33,4 +33,8 @@ class AgentState(TypedDict):
     finance_output: Dict[str, Any]
     advisor_output: Dict[str, Any]
     
+    # User Context
+    user_id: Optional[int]
+    user_tier: str
+    
     logs: Annotated[List[str], operator.add]

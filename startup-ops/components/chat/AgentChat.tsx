@@ -50,7 +50,7 @@ const AGENTS: Agent[] = [
 ];
 
 interface AgentChatProps {
-    startupId: number | null;
+    startupId: number | string | null;
 }
 
 export function AgentChat({ startupId }: AgentChatProps) {

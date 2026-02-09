@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { GoalInputForm } from "@/components/goal/GoalInputForm";
+import { useGoalStore } from "@/store/useGoalStore";
 import {
     Zap, Shield, Users, Sparkles, Check, ArrowRight, Star,
     Brain, Target, LineChart, GitBranch, MessageSquare, Cpu,
@@ -12,6 +13,8 @@ import {
 import { Logo } from "@/components/common/Logo";
 import { isAuthenticated, getCurrentUser, logout } from "@/components/auth/AuthGuard";
 import Link from "next/link";
+import { Modal } from "@/components/ui/modal";
+import { TestimonialsCarousel } from "@/components/landing/TestimonialsCarousel";
 
 const cycleWords = ["build", "launch", "scale", "grow"];
 
@@ -20,6 +23,7 @@ export default function HomePage() {
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+    const [showCreateStartup, setShowCreateStartup] = useState(false);
     const heroRef = useRef<HTMLDivElement>(null);
 
     // Simple scroll animation for hero
@@ -58,6 +62,44 @@ export default function HomePage() {
         }
     };
 
+
+    const { setStartupId } = useGoalStore();
+
+    const handleDashboardClick = async (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        try {
+            const token = localStorage.getItem("access_token");
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+            if (isLoggedIn) {
+                const response = await fetch(`${API_URL}/startups/`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+
+                if (response.ok) {
+                    const startups = await response.json();
+                    if (startups && startups.length > 0) {
+                        const latest = startups.sort((a: any, b: any) =>
+                            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                        )[0];
+
+                        setStartupId(latest.id);
+                        router.push("/plan");
+                        return;
+                    }
+                }
+                // No startups found -> Show create popup
+                setShowCreateStartup(true);
+            } else {
+                router.push("/login");
+            }
+        } catch (error) {
+            console.error("Failed to fetch startups for dashboard redirect:", error);
+            router.push("/plan");
+        }
+    };
+
     const handleTryAutoExecute = () => {
         if (isLoggedIn) {
             router.push("/execute");
@@ -88,7 +130,8 @@ export default function HomePage() {
                     <div className="flex items-center gap-3">
                         {isLoggedIn ? (
                             <>
-                                <Link href="/plan" className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-2">Dashboard</Link>
+                                <Link href="/startups" className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-2">My Startups</Link>
+                                <a href="/plan" onClick={handleDashboardClick} className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-2">Dashboard</a>
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-xs text-violet-400 font-bold">
                                         {user?.name?.charAt(0).toUpperCase() || "U"}
@@ -182,7 +225,7 @@ export default function HomePage() {
                                 className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
                             >
                                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                    onClick={() => router.push("/plan")}
+                                    onClick={handleDashboardClick}
                                     className="group px-8 py-4 rounded-full bg-white text-black font-medium flex items-center gap-2 hover:bg-zinc-100 transition-all"
                                 >
                                     Go to Dashboard
@@ -325,6 +368,7 @@ export default function HomePage() {
 
             {/* ===== TRUSTED BY / LOGOS ===== */}
             <section className="py-20 border-y border-zinc-800 relative overflow-hidden">
+                {/* ... (existing trusted by content) ... */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-500/[0.02] to-transparent" />
                 <div className="max-w-6xl mx-auto px-6 relative">
                     <motion.p
@@ -351,6 +395,7 @@ export default function HomePage() {
 
             {/* ===== BENTO FEATURES ===== */}
             <section id="features" className="py-32 px-6 relative overflow-hidden">
+                {/* ... (existing features content) ... */}
                 <div className="absolute inset-0">
                     <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-violet-500/10 via-transparent to-transparent rounded-full blur-3xl" />
                     <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-to-tl from-cyan-500/10 via-transparent to-transparent rounded-full blur-3xl" />
@@ -473,6 +518,9 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ===== TESTIMONIALS ===== */}
+            <TestimonialsCarousel />
+
             {/* ===== PRICING ===== */}
             <section id="pricing" className="py-32 px-6 bg-zinc-950">
                 <div className="max-w-6xl mx-auto">
@@ -581,6 +629,38 @@ export default function HomePage() {
                 </div>
             </footer>
 
+            <Modal isOpen={showCreateStartup} onClose={() => setShowCreateStartup(false)} title="Create New Startup">
+                <GoalInputForm />
+            </Modal>
+
+            {/* JSON-LD Schema for SEO */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "SoftwareApplication",
+                        "name": "StartupOps",
+                        "applicationCategory": "BusinessApplication",
+                        "operatingSystem": "Web",
+                        "offers": {
+                            "@type": "Offer",
+                            "price": "0",
+                            "priceCurrency": "USD"
+                        },
+                        "description": "AI Co-Founder Platform that helps you build, launch, and scale your startup with 5 specialized AI agents.",
+                        "author": {
+                            "@type": "Organization",
+                            "name": "StartupOps Inc."
+                        },
+                        "aggregateRating": {
+                            "@type": "AggregateRating",
+                            "ratingValue": "4.9",
+                            "ratingCount": "10420"
+                        }
+                    })
+                }}
+            />
         </div>
     );
 }

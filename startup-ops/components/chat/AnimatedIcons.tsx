@@ -1,13 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 interface AnimatedIconProps {
     isSelected: boolean;
     className?: string;
 }
 
-const draw = {
+const draw: Variants = {
     hidden: { pathLength: 0, opacity: 0 },
     visible: (i: number) => {
         const delay = 0.1 + i * 0.15;

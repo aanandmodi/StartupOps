@@ -29,7 +29,11 @@ async def product_node(state: AgentState) -> Dict[str, Any]:
         "domain": state["domain"],
         "team_size": state["team_size"]
     }
-    output = await product_agent.run(start_input)
+    user_context = {
+        "user_id": state.get("user_id"),
+        "tier": state.get("user_tier", "free")
+    }
+    output = await product_agent.run(start_input, user_context=user_context)
     await asyncio.sleep(10)  # Sequential delay to prevent rate limits
     return {"product_output": output, "logs": [f"Product Agent finished: {output.get('title', 'done')}"]}
 
@@ -40,7 +44,11 @@ async def tech_node(state: AgentState) -> Dict[str, Any]:
         "product_output": state["product_output"],
         "team_size": state["team_size"]
     }
-    output = await tech_agent.run(input_data)
+    user_context = {
+        "user_id": state.get("user_id"),
+        "tier": state.get("user_tier", "free")
+    }
+    output = await tech_agent.run(input_data, user_context=user_context)
     await asyncio.sleep(10)  # Sequential delay to prevent rate limits
     return {"tech_output": output, "logs": ["Tech Agent finished"]}
 
@@ -54,7 +62,11 @@ async def marketing_node(state: AgentState) -> Dict[str, Any]:
         "timeline_days": timeline,
         "domain": state["domain"]
     }
-    output = await marketing_agent.run(input_data)
+    user_context = {
+        "user_id": state.get("user_id"),
+        "tier": state.get("user_tier", "free")
+    }
+    output = await marketing_agent.run(input_data, user_context=user_context)
     await asyncio.sleep(10)  # Sequential delay to prevent rate limits
     return {"marketing_output": output, "logs": ["Marketing Agent finished"]}
 
@@ -68,7 +80,11 @@ async def finance_node(state: AgentState) -> Dict[str, Any]:
         "timeline_days": timeline,
         "team_size": state["team_size"]
     }
-    output = await finance_agent.run(input_data)
+    user_context = {
+        "user_id": state.get("user_id"),
+        "tier": state.get("user_tier", "free")
+    }
+    output = await finance_agent.run(input_data, user_context=user_context)
     await asyncio.sleep(10)  # Sequential delay to prevent rate limits
     return {"finance_output": output, "logs": ["Finance Agent finished"]}
 
@@ -80,10 +96,13 @@ async def advisor_node(state: AgentState) -> Dict[str, Any]:
         "tech_output": state["tech_output"],
         "marketing_output": state["marketing_output"],
         "finance_output": state["finance_output"],
-        "startup_goal": state["goal"],
         "team_size": state["team_size"]
     }
-    output = await advisor_agent.run(input_data)
+    user_context = {
+        "user_id": state.get("user_id"),
+        "tier": state.get("user_tier", "free")
+    }
+    output = await advisor_agent.run(input_data, user_context=user_context)
     return {"advisor_output": output, "logs": ["Advisor Agent finished"]}
 
 # Create Graph

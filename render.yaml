@@ -1,0 +1,28 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: startupops-backend
+    env: docker
+    rootDir: backend
+    plan: free # Free tier
+    region: oregon # Default region
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Secrets to be provided in Dashboard
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

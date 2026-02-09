@@ -40,6 +40,9 @@ class AgentOrchestrator:
             "marketing_output": {},
             "finance_output": {},
             "advisor_output": {},
+            # Inject User Context
+            "user_id": startup_data.get("user_id"), 
+            "user_tier": startup_data.get("user_tier", "free"),
             "logs": []
         }
         

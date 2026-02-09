@@ -37,27 +37,32 @@ class Settings(BaseSettings):
     # OpenAI (for embeddings)
     openai_api_key: str = ""
     
-    # Agent Model Assignments
-
-    product_agent_model: str = "moonshotai/kimi-k2-instruct-0905"
-    tech_agent_model: str = "moonshotai/kimi-k2-instruct-0905"
-    marketing_agent_model: str = "moonshotai/kimi-k2-instruct-0905"
-    finance_agent_model: str = "moonshotai/kimi-k2-instruct-0905"
-    advisor_agent_model: str = "moonshotai/kimi-k2-instruct-0905"
+    # Agent Model Assignments & Tiers
+    # Free Tier (Llama 3.1 8B - Fast & Cost Effective)
+    free_model_id: str = "llama-3.1-8b-instant"
     
-    # Integrations
-    slack_bot_token: str = ""
-    slack_signing_secret: str = ""
-    github_app_private_key: str = ""
-    github_app_id: str = ""
-    notion_api_key: str = ""
-    sendgrid_api_key: str = ""
+    # Premium Tier (Llama 3.3 70B - High Intelligence)
+    premium_model_id: str = "llama-3.3-70b-versatile"
+    
+    # Default assignments (can be overridden dynamically)
+    product_agent_model: str = "llama-3.3-70b-versatile"
+    tech_agent_model: str = "llama-3.3-70b-versatile"
+    marketing_agent_model: str = "llama-3.3-70b-versatile"
+    finance_agent_model: str = "llama-3.3-70b-versatile"
+    advisor_agent_model: str = "llama-3.3-70b-versatile"
+    
+    # Rate Limiting
+    groq_concurrent_limit: int = 5
+    
+    # Rate Limiting
+    groq_concurrent_limit: int = 5
     
     # Redis (for Celery and caching)
     redis_url: str = "redis://localhost:6379/0"
     
     # Environment
     environment: str = "development"
+    google_cloud_project: str = ""
     
     # API Settings
     api_timeout: int = 30

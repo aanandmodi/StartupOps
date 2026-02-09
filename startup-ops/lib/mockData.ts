@@ -337,6 +337,7 @@ export const mockFinanceMetrics: FinanceMetrics = {
 // Category labels
 export const categoryLabels: Record<Category, string> = {
     product: "Product Development",
+    tech: "Technology & Engineering",
     marketing: "Marketing & Growth",
     finance: "Finance & Fundraising",
     operations: "Operations & DevOps",
@@ -347,6 +348,7 @@ export const categoryLabels: Record<Category, string> = {
 // Category colors
 export const categoryColors: Record<Category, string> = {
     product: "bg-blue-500",
+    tech: "bg-emerald-500",
     marketing: "bg-purple-500",
     finance: "bg-green-500",
     operations: "bg-orange-500",

@@ -16,21 +16,36 @@ def ensure_firebase_initialized():
         # Not initialized, try to init
         cred = None
         
-        # 1. Try GOOGLE_APPLICATION_CREDENTIALS env var
+        # 1. Try GOOGLE_APPLICATION_CREDENTIALS_JSON env var (Content)
+        json_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        if json_creds:
+            try:
+                import json
+                cred_dict = json.loads(json_creds)
+                logger.info("Initializing Firebase with GOOGLE_APPLICATION_CREDENTIALS_JSON env var")
+                cred = credentials.Certificate(cred_dict)
+                return firebase_admin.initialize_app(cred)
+            except Exception as e:
+                logger.error(f"Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: {e}")
+
+        # 2. Try GOOGLE_APPLICATION_CREDENTIALS env var (Path)
         key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if key_path and os.path.exists(key_path):
             logger.info(f"Initializing Firebase with service account: {key_path}")
             cred = credentials.Certificate(key_path)
-        else:
-            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            local_key = os.path.join(current_dir, "service-account.json")
-            if os.path.exists(local_key):
-                 logger.info(f"Initializing Firebase with local service-account.json: {local_key}")
-                 cred = credentials.Certificate(local_key)
-            else:
-                logger.info("Initializing Firebase with Application Default Credentials")
-                cred = credentials.ApplicationDefault()
+            return firebase_admin.initialize_app(cred)
+
+        # 3. Local file fallback
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        local_key = os.path.join(current_dir, "service-account.json")
+        if os.path.exists(local_key):
+                logger.info(f"Initializing Firebase with local service-account.json: {local_key}")
+                cred = credentials.Certificate(local_key)
+                return firebase_admin.initialize_app(cred)
         
+        # 4. Default credentials
+        logger.info("Initializing Firebase with Application Default Credentials")
+        cred = credentials.ApplicationDefault()
         return firebase_admin.initialize_app(cred)
 
 def get_firebase_db():
@@ -52,21 +67,9 @@ def verify_token(token: str):
     """Verify Firebase ID token."""
     try:
         ensure_firebase_initialized()
-        decoded_token = auth.verify_id_token(token)
+        # Allow 10 seconds of clock skew
+        decoded_token = auth.verify_id_token(token, clock_skew_seconds=10)
         return decoded_token
     except Exception as e:
-        error_msg = str(e)
-        # Handle clock skew (Token used too early)
-        if "Token used too early" in error_msg:
-            import time
-            logger.warning(f"Token used too early (clock skew), retrying in 2 seconds... Error: {e}")
-            time.sleep(2)
-            try:
-                decoded_token = auth.verify_id_token(token)
-                return decoded_token
-            except Exception as retry_e:
-                logger.error(f"Token verification failed after retry: {retry_e}")
-                return None
-                
         logger.error(f"Token verification failed: {e}")
         return None

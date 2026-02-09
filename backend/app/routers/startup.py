@@ -42,6 +42,19 @@ async def create_startup(
         "created_at": datetime.utcnow(),
         "status": "initializing"
     }
+
+    # Fetch user tier to determine model usage
+    try:
+        user_doc = db.collection("users").document(user["uid"]).get()
+        if user_doc.exists:
+            user_data = user_doc.to_dict()
+            new_startup["user_tier"] = user_data.get("tier", "free")
+        else:
+            new_startup["user_tier"] = "free"
+    except Exception as e:
+        logger.error(f"Failed to fetch user tier: {e}")
+        new_startup["user_tier"] = "free"
+
     startup_ref.set(new_startup)
     
     logger.info(f"Startup created with ID: {startup_ref.id} for user {user['uid']}")

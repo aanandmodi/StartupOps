@@ -58,7 +58,7 @@ const AGENT_COLORS: Record<string, string> = {
 };
 
 interface ArtifactGeneratorProps {
-    startupId: number | null;
+    startupId: string | number | null;
 }
 
 export function ArtifactGenerator({ startupId }: ArtifactGeneratorProps) {
