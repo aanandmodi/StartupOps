@@ -1,5 +1,5 @@
 """State definition for the agent graph."""
-from typing import TypedDict, Annotated, List, Dict, Any
+from typing import TypedDict, Annotated, List, Dict, Any, Optional
 import operator
 
 class AgentState(TypedDict):
