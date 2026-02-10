@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     
     # Agent Model Assignments & Tiers
-    # Free Tier (Llama 3.1 8B - Fast & Cost Effective)
-    free_model_id: str = "llama-3.1-8b-instant"
+    # Free Tier (Moonshot AI Kimi K2 - Cost Effective)
+    free_model_id: str = "moonshotai/kimi-k2-instruct-0905"
     
     # Premium Tier (Llama 3.3 70B - High Intelligence)
     premium_model_id: str = "llama-3.3-70b-versatile"

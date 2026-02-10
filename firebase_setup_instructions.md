@@ -15,6 +15,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
+*+
 
 ### Firebase Console Setup
 1. Go to **Authentication** -> **Sign-in method**.
@@ -39,10 +40,10 @@ This authorizes your local environment to act as your Google account.
 **Option B: Service Account Key**
 1. Go to Firebase Console -> Project Settings -> Service accounts.
 2. Click "Generate new private key".
-3. Save the JSON file.
-4. Set the environment variable:
+3. Save the JSON file./
+  21      q1 aza2WSAZZSWESDXZSDEW2E35T7UO90P[\]. Set the environment variable:
    ```powershell
-   $env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\to\service-account.json"
+   $env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\to\4
    ```
 
 ### Running the Migration
